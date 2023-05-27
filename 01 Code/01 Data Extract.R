@@ -31,7 +31,7 @@ team_df <- teams_annual_stats(all_active_teams = T,
                    nest_data =F)
 
 # add in team abbreviations
-team_abbrv_df <- nba_teams() %>% 
+team_abbrv_df <- nba_teams() %>% select(nameTeam, slugTeam)
   
 # combine with our team_df
 team_df2 <- team_df %>% left_join(team_abbrv_df %>% select(nameTeam, slugTeam) %>% unique())
@@ -62,7 +62,7 @@ player_season_win_df <- dataBREFPlayerAdvanced %>%
   left_join(team_df2 %>% select(pctWins, wins, idTeam, "team" = slugTeam, slugSeason), by = c("team", "slugSeason"))
 
 # visual inspection-----
-player_season_win_df %>% 
+p1 <- player_season_win_df %>% 
   # just look at players that were in at least 30 games
   filter(countGames>=30) %>% 
   mutate(start_bench = ifelse(starter == 1, "Starters", "Bench")
@@ -75,13 +75,18 @@ player_season_win_df %>%
   scale_fill_manual(values = c("#E41134", "#00265B")) +
   scale_color_manual(values = c("#E41134", "#00265B")) +
   theme_classic() + 
-  theme(legend.position = "NA") +
+  theme(legend.position = "top") +
   ggpubr::stat_cor(method = "pearson") +
-  facet_wrap(~yearSeason)
+  facet_wrap(~yearSeason) +
+  labs(x = "True Shooting %", y = "Win Percentage"
+       , title = "Relationship between True Shooting and Win Percentage for Bench and Starting Players"
+       , caption = "data: basketball-reference.com\nwizardspoints.substack.com"
+  )
   
+p1
 
 # for each season let's define bench and non-bench points
-player_season_win_df %>% 
+p2 <- player_season_win_df %>% 
   group_by(yearSeason, team, starter, wins) %>% 
   summarize(points = sum(ptsTotals, na.rm=T)) %>% 
   pivot_wider(names_from = "starter", values_from = "points") %>% 
@@ -98,7 +103,12 @@ player_season_win_df %>%
   theme_classic() + 
   theme(legend.position = "NA") +
   ggpubr::stat_cor(method = "pearson") +
-  facet_wrap(~yearSeason)
+  facet_wrap(~yearSeason) +
+  labs(x = "Total Starting Player Points", y = "Total Bench Play erPoints"
+       , title = "Relationship between Bench and Starting Players Total Points"
+       , caption = "data: basketball-reference.com\nwizardspoints.substack.com"
+  )
 
+ggsave("02 Output/Starting vs bench shooting.png", p2, w = 14, h = 12, dpi = 300, type = "cairo")
 
 
