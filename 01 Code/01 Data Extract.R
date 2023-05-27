@@ -57,7 +57,7 @@ starter_df <- dataBREFPlayerTotals %>% rename(team = slugTeamBREF) %>%
   select(slugSeason, yearSeason, namePlayer, team, idPlayerNBA, minutesTotals, starter, ptsTotals)
 
 # merge in team win percentage with out player level info
-player_season_win_df <- dataBREFPlayerAdvanced %>% 
+player_season_win_df <- dataBREFPlayerTotals %>% 
   left_join(starter_df) %>% 
   left_join(team_df2 %>% select(pctWins, wins, idTeam, "team" = slugTeam, slugSeason), by = c("team", "slugSeason"))
 
@@ -67,9 +67,9 @@ p1 <- player_season_win_df %>%
   filter(countGames>=30) %>% 
   mutate(start_bench = ifelse(starter == 1, "Starters", "Bench")
   ) %>% 
-  ggplot(aes(x = pctTrueShooting, y = pctWins)) +
+  ggplot(aes(x = pctEFG, y = pctWins)) +
   geom_hline(aes(yintercept = mean(pctWins, na.rm=T)), linetype = 2, alpha = 0.5) +
-  geom_vline(aes(xintercept = mean(pctTrueShooting, na.rm=T)), linetype = 2, alpha = 0.5) +
+  geom_vline(aes(xintercept = mean(pctEFG, na.rm=T)), linetype = 2, alpha = 0.5) +
   geom_point(aes(col = start_bench), shape = 21, size = 2, stroke = 2, alpha = 0.8, fill = "white") +
   geom_smooth(aes(col = start_bench), method = "lm", se = F) +
   scale_fill_manual(values = c("#E41134", "#00265B")) +
@@ -78,7 +78,7 @@ p1 <- player_season_win_df %>%
   theme(legend.position = "top") +
   ggpubr::stat_cor(method = "pearson") +
   facet_wrap(~yearSeason) +
-  labs(x = "True Shooting %", y = "Win Percentage"
+  labs(x = "Effective Shooting %", y = "Win Percentage"
        , title = "Relationship between True Shooting and Win Percentage for Bench and Starting Players"
        , caption = "data: basketball-reference.com\nwizardspoints.substack.com"
   )
@@ -104,11 +104,30 @@ p2 <- player_season_win_df %>%
   theme(legend.position = "NA") +
   ggpubr::stat_cor(method = "pearson") +
   facet_wrap(~yearSeason) +
-  labs(x = "Total Starting Player Points", y = "Total Bench Play erPoints"
+  labs(x = "Total Starting Player Points", y = "Total Bench Player Points"
        , title = "Relationship between Bench and Starting Players Total Points"
        , caption = "data: basketball-reference.com\nwizardspoints.substack.com"
   )
 
-ggsave("02 Output/Starting vs bench shooting.png", p2, w = 14, h = 12, dpi = 300, type = "cairo")
+ggsave("02 Output/Starting vs bench shooting.png", p2, w = 14, h = 12, dpi = 300)
 
+# let's look at bench points by winning and losing team
+p3 <- player_season_win_df %>% 
+  select(yearSeason, starter, ptsTotals, pctWins) %>% 
+  group_by(yearSeason, starter) %>% 
+  summarize(points = sum(ptsTotals, na.rm=T)) %>% 
+  mutate(starter = ifelse(starter == 0, "Bench Player", "Starting Player")) %>% 
+  ggplot(aes(x = yearSeason, y = points)) +
+  geom_area(aes(fill = starter), position = "stack", stat = "identity") +
+  scale_fill_manual(values = c("#E41134", "#00265B")) +
+  scale_y_continuous(labels = scales::comma_format(accuracy = 1)) +
+  theme_classic() + 
+  theme(legend.position = "top"
+        , legend.title = element_blank()) +
+  labs(x = "Season", y = "Total Points"
+       , title = "Starting and Bench Player Points\nAcross All Teams Combined, 2012-22"
+       , caption = "data: basketball-reference.com\nwizardspoints.substack.com"
+  )
+
+ggsave("02 Output/Starting vs bench shooting over time.png", p3, w = 14, h = 12, dpi = 300)
 
