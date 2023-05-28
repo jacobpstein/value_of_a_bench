@@ -87,6 +87,7 @@ p1
 
 # for each season let's define bench and non-bench points
 p2 <- player_season_win_df %>% 
+  filter(is.na(wins)!=T) %>% 
   group_by(yearSeason, team, starter, wins) %>% 
   summarize(points = sum(ptsTotals, na.rm=T)) %>% 
   pivot_wider(names_from = "starter", values_from = "points") %>% 
@@ -112,8 +113,8 @@ p2 <- player_season_win_df %>%
 ggsave("02 Output/Starting vs bench shooting.png", p2, w = 14, h = 12, dpi = 300)
 
 # let's look at bench points by winning and losing team
-p3 <- player_season_win_df %>% 
-  select(yearSeason, starter, ptsTotals, pctWins) %>% 
+p3 <- starter_df %>% 
+  select(yearSeason, starter, ptsTotals) %>% 
   group_by(yearSeason, starter) %>% 
   summarize(points = sum(ptsTotals, na.rm=T)) %>% 
   mutate(starter = ifelse(starter == 0, "Bench Player", "Starting Player")) %>% 
