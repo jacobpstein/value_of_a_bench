@@ -41,11 +41,8 @@ team_df2 <- team_df %>% left_join(team_abbrv_df %>% select(nameTeam, slugTeam) %
 # we'll pull data across different stat types, which is what the tables option means
 # this loads the dataframes into your environment automatically
 bref_players_stats(seasons = c(2012:2023)
-                                     , tables = c("totals"
-                                       , "advanced"
-                                       # , "per_poss"
-                                       , "per_game"
-                                       # , "per_minute"
+                                     , tables = c(
+                                       "totals"
                                      ))
 
 
@@ -71,51 +68,47 @@ player_season_win_df <- dataBREFPlayerTotals %>%
 # this is pretty much a basic api function that could be wrapped up into 
 # something more sophisticated
 
-# Function to retrieve player game logs for a specific season
-get_player_game_logs <- function(season) {
-  # Specify the API endpoint URL
-  url <- paste0("https://stats.nba.com/stats/leaguegamelog?Counter=1000&DateFrom=&DateTo=&Direction=DESC&LeagueID=00&PlayerOrTeam=P&Season="
-                , season,
-                "&SeasonType=Regular%20Season&Sorter=DATE")
-  # Set the headers
-  headers <- c(
-    'User-Agent' = 'Mozilla/5.0',
-    'Referer' = 'https://stats.nba.com/'
-  )
-  
-  # Send the GET request
-  response <- GET(url, add_headers(.headers=headers))
-  
-  # Parse the response as JSON
-  data <- content(response, as = "text")
-  parsed_data <- fromJSON(data)
-  
-  # Access the game logs data
-  game_logs <- parsed_data$resultSets[[0]]$rowSet
-  
-  return(game_logs)
-}
+# Set the headers
+headers = c(
+  `Connection` = 'keep-alive',
+  `Accept` = 'application/json, text/plain, */*',
+  `x-nba-stats-token` = 'true',
+  `X-NewRelic-ID` = 'VQECWF5UChAHUlNTBwgBVw==',
+  `User-Agent` = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.87 Safari/537.36',
+  `x-nba-stats-origin` = 'stats',
+  `Sec-Fetch-Site` = 'same-origin',
+  `Sec-Fetch-Mode` = 'cors',
+  `Referer` = 'https://stats.nba.com/players/leaguedashplayerbiostats/',
+  `Accept-Encoding` = 'gzip, deflate, br',
+  `Accept-Language` = 'en-US,en;q=0.9'
+)
 
 # Specify the seasons of interest
-start_season <- 2022
-end_season <- 2023
+start_season <- 2011
+end_season <- 2022
 
-# Empty list to store all player game logs
-all_player_game_logs <- list()
+# create null object
+df <- NULL
 
-# Retrieve game logs for each season
 for (season in start_season:end_season) {
   season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
-  player_game_logs <- get_player_game_logs(season_string)
-  all_player_game_logs[[as.character(season)]] <- player_game_logs
+  url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
+  , season_string
+  , "&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=")
+  res <- GET(url = url, add_headers(.headers=headers))
+  
+  json_res <- fromJSON(content(res, "text"))
+  tmp_dat <- data.frame(json_res$resultSets$rowSet[[1]]) 
+  
+  names(tmp_dat) <- data.frame(json_res[["resultSets"]][["headers"]])$c..PLAYER_ID....PLAYER_NAME....NICKNAME....TEAM_ID....TEAM_ABBREVIATION...
+
+  
+  df[[season_string]] <- tmp_dat
+  
 }
 
-# Print the game logs for each season
-for (season in start_season:end_season) {
-  season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
-  print(paste("Game logs for season", season_string))
-  print(all_player_game_logs[[as.character(season)]])
-}
+# combine all of our list objects into a data frame
+advanced_player_df <- bind_rows(df)
 
 
 # visual inspection-----
