@@ -67,7 +67,10 @@ player_season_win_df <- dataBREFPlayerTotals %>%
 # your internet connection and probably some other stuff like how many
 # people are checking stats
 
-# Function to retrieve player data for a specific year
+# Function to retrieve player data for 2011 through 2023
+# this is pretty much a basic api function that could be wrapped up into 
+# something more sophisticated
+
 get_player_data <- function(year) {
   # Specify the API endpoint URL
   url <- paste0("https://stats.nba.com/stats/leaguegamelog",
