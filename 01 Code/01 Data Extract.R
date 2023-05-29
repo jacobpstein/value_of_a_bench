@@ -16,7 +16,8 @@ library(rstanarm) # Bayesian models
 library(lme4) # mixed effect models
 library(hoopR) # another api wrapper, but for ESPN, also includes NBA stats, also kind of buggy
 library(viridis) # neat colors
-
+library(httr) # for directly querying the NBA API rather than using wrapper packages
+library(jsonlite) # for dealing with JSON output from NBA.com
 
 # set seed
 set.seed(20222712)
@@ -61,7 +62,60 @@ player_season_win_df <- dataBREFPlayerTotals %>%
   left_join(starter_df) %>% 
   left_join(team_df2 %>% select(pctWins, wins, idTeam, "team" = slugTeam, slugSeason), by = c("team", "slugSeason"))
 
+# pull game to game stats from NBA's API directly---------
+# this should take anywhere from one to five minutes or so depending on 
+# your internet connection and probably some other stuff like how many
+# people are checking stats
+
+# Function to retrieve player data for a specific year
+get_player_data <- function(year) {
+  # Specify the API endpoint URL
+  url <- paste0("https://stats.nba.com/stats/leaguegamelog",
+                "?Season=", year,
+                "&SeasonType=Regular+Season",
+                "&PlayerOrTeam=Player",
+                "&Direction=DESC",
+                "&Sorter=PTS",
+                "&MeasureType=Advanced")
+  
+  # Set the headers
+  headers <- c(
+    'User-Agent' = 'Mozilla/5.0',
+    'Referer' = 'https://stats.nba.com/'
+  )
+  
+  # Send the GET request
+  response <- GET(url, add_headers(.headers=headers))
+  
+  # Parse the response as JSON
+  data <- content(response, as = "text")
+  parsed_data <- fromJSON(data)
+  
+  # Access the player data
+  player_data <- parsed_data$resultSets[[0]]$rowSet
+  
+  return(player_data)
+}
+
+# Specify the years of interest
+start_year <- 2011
+end_year <- 2023
+
+# Retrieve player data for each year
+all_player_data <- list()
+for (year in start_year:end_year) {
+  player_data <- get_player_data(year)
+  all_player_data[[as.character(year)]] <- player_data
+}
+
+# Print the player data for each year
+for (year in start_year:end_year) {
+  print(paste("Player data for year", year))
+  print(all_player_data[[as.character(year)]])
+}
+
 # visual inspection-----
+# probably should move this to its own file
 p1 <- player_season_win_df %>% 
   # just look at players that were in at least 30 games
   filter(countGames>=30) %>% 
@@ -82,7 +136,7 @@ p1 <- player_season_win_df %>%
        , title = "Relationship between True Shooting and Win Percentage for Bench and Starting Players"
        , caption = "data: basketball-reference.com\nwizardspoints.substack.com"
   )
-  
+
 p1
 
 # for each season let's define bench and non-bench points
@@ -94,7 +148,7 @@ p2 <- player_season_win_df %>%
   rename("bench" = `0`
          , "starters" = `1`) %>% 
   mutate(wiz = ifelse(team == "WAS", "Wizards", "Other")
-         ) %>% 
+  ) %>% 
   ggplot(aes(x = starters, y = bench)) +
   geom_hline(aes(yintercept = mean(bench, na.rm=T)), linetype = 2, alpha = 0.5) +
   geom_vline(aes(xintercept = mean(starters, na.rm=T)), linetype = 2, alpha = 0.5) +
@@ -131,4 +185,3 @@ p3 <- starter_df %>%
   )
 
 ggsave("02 Output/Starting vs bench shooting over time.png", p3, w = 14, h = 12, dpi = 300)
-
