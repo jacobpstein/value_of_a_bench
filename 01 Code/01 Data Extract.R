@@ -71,16 +71,12 @@ player_season_win_df <- dataBREFPlayerTotals %>%
 # this is pretty much a basic api function that could be wrapped up into 
 # something more sophisticated
 
-get_player_data <- function(year) {
+# Function to retrieve player game logs for a specific season
+get_player_game_logs <- function(season) {
   # Specify the API endpoint URL
-  url <- paste0("https://stats.nba.com/stats/leaguegamelog",
-                "?Season=", year,
-                "&SeasonType=Regular+Season",
-                "&PlayerOrTeam=Player",
-                "&Direction=DESC",
-                "&Sorter=PTS",
-                "&MeasureType=Advanced")
-  
+  url <- paste0("https://stats.nba.com/stats/leaguegamelog?Counter=1000&DateFrom=&DateTo=&Direction=DESC&LeagueID=00&PlayerOrTeam=P&Season="
+                , season,
+                "&SeasonType=Regular%20Season&Sorter=DATE")
   # Set the headers
   headers <- c(
     'User-Agent' = 'Mozilla/5.0',
@@ -94,28 +90,33 @@ get_player_data <- function(year) {
   data <- content(response, as = "text")
   parsed_data <- fromJSON(data)
   
-  # Access the player data
-  player_data <- parsed_data$resultSets[[0]]$rowSet
+  # Access the game logs data
+  game_logs <- parsed_data$resultSets[[0]]$rowSet
   
-  return(player_data)
+  return(game_logs)
 }
 
-# Specify the years of interest
-start_year <- 2011
-end_year <- 2023
+# Specify the seasons of interest
+start_season <- 2022
+end_season <- 2023
 
-# Retrieve player data for each year
-all_player_data <- list()
-for (year in start_year:end_year) {
-  player_data <- get_player_data(year)
-  all_player_data[[as.character(year)]] <- player_data
+# Empty list to store all player game logs
+all_player_game_logs <- list()
+
+# Retrieve game logs for each season
+for (season in start_season:end_season) {
+  season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
+  player_game_logs <- get_player_game_logs(season_string)
+  all_player_game_logs[[as.character(season)]] <- player_game_logs
 }
 
-# Print the player data for each year
-for (year in start_year:end_year) {
-  print(paste("Player data for year", year))
-  print(all_player_data[[as.character(year)]])
+# Print the game logs for each season
+for (season in start_season:end_season) {
+  season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
+  print(paste("Game logs for season", season_string))
+  print(all_player_game_logs[[as.character(season)]])
 }
+
 
 # visual inspection-----
 # probably should move this to its own file
