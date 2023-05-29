@@ -11,11 +11,7 @@ library(tidyverse) # the usual
 library(nbastatR) # api wrapper, super buggy
 library(janitor) # for easy cross-tabs and a few other aesthetic fixes
 library(lubridate) # dates
-library(ggrepel) # for labels
 library(rstanarm) # Bayesian models
-library(lme4) # mixed effect models
-library(hoopR) # another api wrapper, but for ESPN, also includes NBA stats, also kind of buggy
-library(viridis) # neat colors
 library(httr) # for directly querying the NBA API rather than using wrapper packages
 library(jsonlite) # for dealing with JSON output from NBA.com
 
