@@ -110,5 +110,7 @@ named_df_list <- Map(function(df, name) {transform(df, season = name)}, df, name
 # combine all of our list objects into a data frame
 advanced_player_df <- do.call(rbind, named_df_list) %>% 
   mutate(across(-c(2, 3, 5, 79), as.numeric)) %>% 
-  left_join(starter_df)
+  left_join(starter_df, by = c("season" = "slugSeason"
+                               , "PLAYER_ID" = "idPlayerNBA"
+                               ))
   
