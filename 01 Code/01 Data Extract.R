@@ -108,8 +108,8 @@ for (season in start_season:end_season) {
 }
 
 # combine all of our list objects into a data frame
-advanced_player_df <- bind_rows(df)
-
+advanced_player_df <- bind_rows(df) %>% 
+  mutate(across(-c(2, 3, 5), as.numeric))
 
 # visual inspection-----
 # probably should move this to its own file
