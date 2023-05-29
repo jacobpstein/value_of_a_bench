@@ -119,4 +119,4 @@ player_team_df <- do.call(rbind, named_df_list) %>%
   # add in our team totals
   left_join(team_df2, by = c("TEAM_ABBREVIATION" = "slugTeam",  "season" = "slugSeason"))
 
-write.csv(player_team_df, "03 Output\advanced player stats and team stats.csv")
+write.csv(player_team_df, "03 Data/advanced player stats and team stats.csv")
