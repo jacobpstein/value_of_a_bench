@@ -15,6 +15,11 @@ set.seed(5292023)
 # read in data
 player_team_df <- read.csv("03 Output\advanced player stats and team stats.csv")
 
+# a few things to look into:
+# bench player wins vs. starting player wins
+# starters vs. bench relationship
+# trend of bench minutes/games overtime by team (maybe just focus on Wiz)
+
 
 # take a look at bench vs starter net rating and win percentage
 p1 <- player_team_df %>% 
