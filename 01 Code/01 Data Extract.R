@@ -50,11 +50,6 @@ starter_df <- dataBREFPlayerTotals %>% rename(team = slugTeamBREF) %>%
   # select a few columns
   select(slugSeason, yearSeason, namePlayer, team, idPlayerNBA, minutesTotals, starter, ptsTotals)
 
-# merge in team win percentage with out player level info
-player_season_win_df <- dataBREFPlayerTotals %>% 
-  left_join(starter_df) %>% 
-  left_join(team_df2 %>% select(pctWins, wins, idTeam, "team" = slugTeam, slugSeason), by = c("team", "slugSeason"))
-
 # pull game to game stats from NBA's API directly---------
 # this should take anywhere from one to five minutes or so depending on 
 # your internet connection and probably some other stuff like how many
@@ -88,17 +83,24 @@ df <- NULL
 
 for (season in start_season:end_season) {
   season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
+  
+  # create a url object, this can be updated depending on the NBA end point we want
   url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
   , season_string
   , "&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&VsConference=&VsDivision=&Weight=")
+  # query the site
   res <- GET(url = url, add_headers(.headers=headers))
   
+  # convert to json
   json_res <- fromJSON(content(res, "text"))
+  
+  # convert to a dataframe
   tmp_dat <- data.frame(json_res$resultSets$rowSet[[1]]) 
   
+  # the json file contains multiple objects with headers and values split, add the headers back in
   names(tmp_dat) <- data.frame(json_res[["resultSets"]][["headers"]])$c..PLAYER_ID....PLAYER_NAME....NICKNAME....TEAM_ID....TEAM_ABBREVIATION...
 
-  
+  # toss all of our data frames for each year into a list
   df[[season_string]] <- tmp_dat
   
 }
@@ -108,9 +110,13 @@ for (season in start_season:end_season) {
 named_df_list <- Map(function(df, name) {transform(df, season = name)}, df, names(df))
 
 # combine all of our list objects into a data frame
-advanced_player_df <- do.call(rbind, named_df_list) %>% 
+# this is more or less what I imagine we'll work with for analysis
+player_team_df <- do.call(rbind, named_df_list) %>% 
   mutate(across(-c(2, 3, 5, 79), as.numeric)) %>% 
   left_join(starter_df, by = c("season" = "slugSeason"
                                , "PLAYER_ID" = "idPlayerNBA"
-                               ))
-  
+                               )) %>% 
+  # add in our team totals
+  left_join(team_df2, by = c("TEAM_ABBREVIATION" = "slugTeam",  "season" = "slugSeason"))
+
+write.csv(player_team_df, "03 Output\advanced player stats and team stats.csv")
