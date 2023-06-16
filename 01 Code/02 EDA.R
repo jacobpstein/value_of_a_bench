@@ -8,12 +8,14 @@
 
 # Load packages
 library(tidyverse) # the usual
+library(readr) # fancy data load 
+
 
 # set seed
 set.seed(5292023)
 
 # read in data
-player_team_df <- read.csv("03 Output\advanced player stats and team stats.csv")
+player_team_df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip()))
 
 # a few things to look into:
 # bench player wins vs. starting player wins
@@ -40,3 +42,18 @@ p1 <- player_team_df %>%
   )
 
 ggsave("02 Output/Starting vs bench shooting over time.png", p1, w = 14, h = 12, dpi = 300)
+
+# let's look at average player win percentage for bench players by year
+player_team_df %>% 
+  filter(starter == 0) %>%
+  mutate(wiz = ifelse(TEAM_ABBREVIATION == "WAS", "Wizards", "Other")) %>% 
+  ggplot(aes(x = yearSeason, y = W_PCT)) +
+  geom_point(aes(col =wiz), shape = 21, alpha = 0.2) +
+  geom_smooth(aes(col = wiz, alpha = wiz), se = F) +
+  scale_color_manual(values = c("#E41134", "#6C6463")) +
+  scale_alpha_manual(values = c(1, 0.2)) +
+  theme_classic() + 
+  theme(legend.title = element_blank()) +
+  facet_wrap(~isConferenceChampion)
+
+
