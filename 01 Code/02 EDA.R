@@ -9,6 +9,7 @@
 # Load packages
 library(tidyverse) # the usual
 library(readr) # fancy data load 
+library(geomtextpath)
 
 
 # set seed
@@ -44,16 +45,21 @@ p1 <- player_team_df %>%
 ggsave("02 Output/Starting vs bench shooting over time.png", p1, w = 14, h = 12, dpi = 300)
 
 # let's look at average player win percentage for bench players by year
-player_team_df %>% 
+p2 <- player_team_df %>% 
   filter(starter == 0) %>%
-  mutate(wiz = ifelse(TEAM_ABBREVIATION == "WAS", "Wizards", "Other")) %>% 
-  ggplot(aes(x = yearSeason, y = W_PCT)) +
-  geom_point(aes(col =wiz), shape = 21, alpha = 0.2) +
-  geom_smooth(aes(col = wiz, alpha = wiz), se = F) +
+  mutate(wiz = ifelse(TEAM_ABBREVIATION == "WAS", "Wizards", "All Other Teams")) %>% 
+  summarize(mean_win_pct = mean(W_PCT, na.rm=T)
+            , .by = c(yearSeason, wiz)) %>% 
+  ggplot(aes(x = yearSeason, y = mean_win_pct)) +
+  geom_textline(aes(col = wiz, label = wiz), hjust = 0.08, lwd = 2, size = 6) +
   scale_color_manual(values = c("#E41134", "#6C6463")) +
-  scale_alpha_manual(values = c(1, 0.2)) +
+  scale_x_continuous(breaks = c(seq(2012, 2022, 2))) +
   theme_classic() + 
-  theme(legend.title = element_blank()) +
-  facet_wrap(~isConferenceChampion)
+  theme(legend.position = "NA") +
+  labs(x = "", y = "Win %"
+       , title = "Average Per Season Bench Player Win Percentage Over the Past Decade"
+       , caption = "data: nba.com/stats\nwizardspoints.substack.com"
+  ) 
 
+ggsave("02 Output/average per season bench player win pct.png", p2, w = 14, h = 12, dpi = 300)
 
