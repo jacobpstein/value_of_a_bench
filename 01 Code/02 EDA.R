@@ -9,7 +9,7 @@
 # Load packages
 library(tidyverse) # the usual
 library(readr) # fancy data load 
-library(geomtextpath)
+library(geomtextpath) # for labeled lines
 
 
 # set seed
@@ -62,4 +62,69 @@ p2 <- player_team_df %>%
   ) 
 
 ggsave("02 Output/average per season bench player win pct.png", p2, w = 14, h = 12, dpi = 300)
+
+
+
+# let's start a little more basic with the distribution of offensive and defensive rating
+p3 <- player_team_df %>% 
+  filter(is.na(starter)!=T
+         & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
+  ) %>% 
+  mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
+  select(season, team, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  pivot_longer(cols = c(5:6)) %>% 
+  ggplot(aes(x = value)) +
+  geom_density(aes(fill = starter), alpha = 0.6) +
+  scale_fill_manual(values = c("#E41134", "#00265B")) +
+  theme_classic() + 
+  theme(legend.title = element_blank()
+        , legend.position = "top") +
+  facet_wrap(~name) +
+  labs(title = "Starting and Bench Player Offense and\nDefensive Rating Distribution, 2011-23"
+       , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
+  )
+
+ggsave("02 Output/distribution of off and def ratings.png", p3, w = 14, h = 12, dpi = 300)
+
+# defense is pretty similar, but offensive seems different
+player_team_df %>% 
+  filter(is.na(starter)!=T
+         & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
+  ) %>% 
+  mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
+  select(season, team, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  pivot_longer(cols = c(5:6)) %>% 
+  group_by(name, starter) %>% 
+  summarize(mean = mean(value, na.rm=T))
+
+# just check with a t-test
+# offense
+t.test(player_team_df$OFF_RATING[player_team_df$GP>=10 & is.na(player_team_df$starter)!=T] ~ player_team_df$starter[player_team_df$GP>=10 & is.na(player_team_df$starter)!=T] )
+
+# defense
+t.test(player_team_df$DEF_RATING[player_team_df$GP>=10 & is.na(player_team_df$starter)!=T] ~ player_team_df$starter[player_team_df$GP>=10 & is.na(player_team_df$starter)!=T] )
+
+# overall net rating
+t.test(player_team_df$NET_RATING[player_team_df$GP>=10 & is.na(player_team_df$starter)!=T] ~ player_team_df$starter[player_team_df$GP>=10 & is.na(player_team_df$starter)!=T] )
+
+# let's look at the distribution by season
+p4 <- player_team_df %>% 
+  filter(is.na(starter)!=T
+         & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
+  ) %>% 
+  mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
+  select(season, team, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  pivot_longer(cols = c(5:6)) %>% 
+  ggplot(aes(x = value)) +
+  geom_density(aes(fill = starter), alpha = 0.6) +
+  scale_fill_manual(values = c("#E41134", "#00265B")) +
+  theme_classic() + 
+  theme(legend.title = element_blank()
+        , legend.position = "top") +
+  facet_wrap(~name+season) +
+  labs(title = "Starting and Bench Player Offense and\nDefensive Rating Distribution by Season"
+       , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
+  )
+
+ggsave("02 Output/distribution of off and def ratings by season.png", p4, w = 14, h = 12, dpi = 300)
 
