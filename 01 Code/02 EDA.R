@@ -194,3 +194,10 @@ p6 <-
 p6
 
 ggsave("02 Output/net rating gap for the wizards.png", p6, w = 16, h = 12, dpi = 300)
+
+
+# let's look at the actual Wizards data
+player_team_df %>%
+  filter(teamName == "Wizards" & season == "2022-23" & is.na(starter)!=T & GP>=10) %>% 
+  select(PLAYER_NAME, NET_RATING, starter, MIN) %>% 
+  arrange(desc(MIN), desc(NET_RATING))
