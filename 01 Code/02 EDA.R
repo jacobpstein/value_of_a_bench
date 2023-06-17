@@ -128,3 +128,69 @@ p4 <- player_team_df %>%
 
 ggsave("02 Output/distribution of off and def ratings by season.png", p4, w = 14, h = 12, dpi = 300)
 
+# let's take a look at the gap between starters and bench players this season
+p5 <-
+  player_team_df %>%
+  filter(season == "2022-23" & is.na(starter)!=T & GP>=10) %>% 
+  select(teamName, NET_RATING, starter, MIN) %>% 
+  mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>% 
+  summarize("Net Rating" = mean(NET_RATING)
+            , "Minutes" = mean(MIN), .by = c(teamName, starter)) %>% 
+  ggplot(aes(x = `Net Rating`, y = teamName)) +
+  ggforce::geom_link(data =
+                 player_team_df %>%
+                 filter(season == "2022-23" & is.na(starter)!=T & GP>=10) %>%
+                 select(teamName, NET_RATING, starter, MIN) %>%
+                 mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>%
+                 summarize("Net Rating" = mean(NET_RATING)
+                           ,  .by = c(teamName, starter)) %>% pivot_wider(names_from = starter, values_from = `Net Rating`)
+                 , aes(x = `Bench Players`, xend = Starters, y = reorder(teamName, Starters), yend = reorder(teamName, Starters)
+                       , alpha = stat(index)
+                       )
+               , color = "gray70"
+  ) +
+  geom_point(aes(color = starter, size = Minutes)) +
+  scale_color_manual(values = c("#E41134", "#00265B")) +
+  theme_classic() + 
+  theme(legend.position = "NA") +
+  labs(y = "", title = "Starting and Bench Player Net Rating by Team for the 2022-23 Season"
+       , subtitle = "Only players with 10 or more games played considered\ndots are sized by average minutes"
+       , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
+  )
+
+p5
+ggsave("02 Output/net rating gap for 2022-23.png", p5, w = 16, h = 12, dpi = 300)
+
+# let's look at the same figure but just for the Wizards
+p6 <- 
+  player_team_df %>%
+  filter(teamName == "Wizards" & is.na(starter)!=T & GP>=10) %>% 
+  select(season, NET_RATING, starter, MIN) %>% 
+  mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>% 
+  summarize("Net Rating" = mean(NET_RATING)
+            , "Minutes" = mean(MIN), .by = c(season, starter)) %>% 
+  ggplot(aes(x = `Net Rating`, y = fct_rev(season))) +
+  ggforce::geom_link(data =
+                       player_team_df %>%
+                       filter(teamName == "Wizards" & is.na(starter)!=T & GP>=10) %>% 
+                       select(season, NET_RATING, starter, MIN) %>%
+                       mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>%
+                       summarize("Net Rating" = mean(NET_RATING)
+                                 ,  .by = c(season, starter)) %>% pivot_wider(names_from = starter, values_from = `Net Rating`)
+                     , aes(x = `Bench Players`, xend = Starters, y = fct_rev(season), yend = fct_rev(season)
+                           , alpha = stat(index)
+                     ),
+                      color = "gray70"
+  ) +
+  geom_point(aes(color = starter, size = Minutes)) +
+  scale_color_manual(values = c("#E41134", "#00265B")) +
+  theme_classic() + 
+  theme(legend.position = "NA") +
+  labs(y = "", title = "Starting and Bench Player Net Rating by Season for the Wizards"
+       , subtitle = "Only players with 10 or more games played considered\ndots are sized by average minutes"
+       , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
+  )
+
+p6
+
+ggsave("02 Output/net rating gap for the wizards.png", p6, w = 16, h = 12, dpi = 300)
