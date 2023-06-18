@@ -29,12 +29,13 @@ df_collapse <- df %>%
   # drop our character variables
   select(-PLAYER_NAME, -team, -PLAYER_ID,-cityTeam, -modeSearch, -TEAM_ABBREVIATION,-NICKNAME, -namePlayer, -descriptionNBAFinalsAppearance, -isNBAChampion) %>% 
   # collapse by team, season, and starter
-  group_by(teamName, nameTeam, season, yearSeason, starter) %>% 
-  summarize_all(.funs = mean, na.rm=T) 
+  group_by(teamName, yearSeason, starter) %>% 
+  summarize_all(.funs = mean, na.rm=T) %>% 
+  ungroup()
 
 # let's just get a sense of the relationships in our data for starters
 df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
-  select(-teamName, -nameTeam, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
+  select(-teamName, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
   cor() %>%
   as_tibble(rownames = "var") %>%
   mutate(across(-var, round, 4)) %>%
@@ -42,7 +43,7 @@ df_collapse %>% ungroup() %>% filter(starter == 1) %>%
 
 # and for the bench
 df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
-  select(-teamName, -nameTeam, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
+  select(-teamName, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
   cor() %>%
   as_tibble(rownames = "var") %>%
   mutate(across(-var, round, 4)) %>%
@@ -57,7 +58,7 @@ df_train <- training(df_split)
 df_test  <-  testing(df_split)
 
 # create some resampling folds
-df_folds <- vfold_cv(df_train, strata = yearSeason)
+df_folds <- vfold_cv(df_train)
 
 # let's do two basic model engines to starts: linear and lasso, we can build this out
 # to do some ensemble models
@@ -72,7 +73,10 @@ lm_wflow <-
                                                   , NET_RATING
                                                   , TS_PCT
                                                   , W_PCT
-                                                  , starter))
+                                                  , starter
+                                                  , MIN
+                                                  # , teamName # team fixed effects
+                                                  ))
 
 lm_fit <- fit(lm_wflow, df_train)
 
@@ -81,8 +85,42 @@ ctrl_preds <- control_resamples(save_pred = TRUE)
 
 resample_basic <- fit_resamples(lm_wflow, df_folds, control = ctrl_preds)
 
-collect_metrics(resample_basic) # ok
+collect_metrics(resample_basic) # ok, this seems to fit the data pretty well
 
+# let's also take a look at individual covariates
+lm_fit %>% 
+  extract_fit_engine() %>% 
+  summary()
+
+# now we should add some interaction terms to specifically account for 
+# we need to add a new recipe
+simple_df <- 
+  recipe(pctWins ~ AGE + NET_RATING + GP + TS_PCT + starter + W_PCT + MIN
+         , data = df_train) %>%
+  step_interact( ~starter:all_numeric_predictors()) 
+simple_df
+
+lm_wflow <- 
+  lm_wflow %>% 
+  remove_variables() %>% 
+  add_recipe(simple_df)
+
+lm_wflow
+
+
+lm_fit <- fit(lm_wflow, df_train)
+
+# resample
+ctrl_preds <- control_resamples(save_pred = TRUE)
+
+resample_basic <- fit_resamples(lm_wflow, df_folds, control = ctrl_preds)
+
+collect_metrics(resample_basic) # ok, this seems to fit the data pretty well
+
+# let's also take a look at individual covariates
+lm_fit %>% 
+  extract_fit_engine() %>% 
+  summary()
 
 # Define the multi-level model
 m1 <- lmer(pctWins ~ OFF_RATING + AGE + GP + MIN + USG_PCT + (1 | team) + (1 | starter), data = df)
