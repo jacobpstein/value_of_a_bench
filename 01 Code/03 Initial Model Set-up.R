@@ -28,9 +28,9 @@ df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = c
 
 df_collapse <- df %>% 
   # drop our character variables
-  select(-PLAYER_NAME, -team, -PLAYER_ID,-cityTeam, -modeSearch, -TEAM_ABBREVIATION,-NICKNAME, -namePlayer, -descriptionNBAFinalsAppearance, -isNBAChampion) %>% 
+  select(-PLAYER_NAME, -PLAYER_ID,-cityTeam, -modeSearch, -TEAM_ABBREVIATION,-NICKNAME, -descriptionNBAFinalsAppearance, -isNBAChampion) %>% 
   # collapse by team, season, and starter
-  group_by(teamName, yearSeason, starter) %>% 
+  group_by(teamName, season, starter) %>% 
   summarize_all(.funs = mean, na.rm=T) %>% 
   ungroup()
 
@@ -50,11 +50,28 @@ df_collapse %>% ungroup() %>% filter(starter == 1) %>%
   mutate(across(-var, round, 4)) %>%
   gt(rowname_col = "var")
 
+
 # net rating, PIE, offensive rating, true shooting, fg pct, player win pct all stand out
 # offsenive rating and net rating are redundant with each other, same with ts and ft pct
 
+# we see a similar trend if we keep the data as is, but the magnitudes are lower
+
+# let's just get a sense of the relationships in our data for starters
+df %>% ungroup() %>% filter(starter == 1) %>% 
+  select(-teamName, -season, -contains("RANK"), -contains("E_"), -contains("sp_work"), -PLAYER_NAME, -NICKNAME, -TEAM_ABBREVIATION, -slugTeam, -descriptionNBAFinalsAppearance, -c(starter_char:cityTeam)) %>% 
+  cor() %>% as_tibble(rownames = "var") %>%
+  mutate(across(-var, round, 4)) %>%
+  gt(rowname_col = "var")
+
+df %>% ungroup() %>% filter(starter == 0 & GP>=10) %>% 
+  select(-teamName, -season, -contains("RANK"), -contains("E_"), -contains("sp_work"), -PLAYER_NAME, -NICKNAME, -TEAM_ABBREVIATION, -slugTeam, -descriptionNBAFinalsAppearance, -c(starter_char:cityTeam)) %>% 
+  cor() %>% as_tibble(rownames = "var") %>%
+  mutate(across(-var, round, 4)) %>%
+  gt(rowname_col = "var")
+
+
 # train-test split
-df_split <- initial_split(df_collapse, prop = 0.80, strata = yearSeason)
+df_split <- initial_split(df_collapse, prop = 0.80, strata = season)
 df_train <- training(df_split)
 df_test  <-  testing(df_split)
 
@@ -134,23 +151,18 @@ ggplot(df_test_res, aes(x = pctWins, y = .pred)) +
   labs(y = "Predicted Win %", x = "Win %") +
   theme_classic()
 
-# this is nice as far as prediction, but we're more interested in inference
-# so we need to isolate the effect of starting
-
-
-
-
-
-
+# this is nice as far as prediction, but we're more interested in the coefficient on starter
 
 
 
 # sandbox------
 # Define the multi-level model
-m1 <- lmer(pctWins ~ OFF_RATING + AGE + GP + MIN + USG_PCT + (1 | team) + (1 | starter), data = df)
+m1 <- lmer(pctWins ~ NET_RATING + AGE + GP + MIN + USG_PCT + PIE + TS_PCT  + (1 | teamName) + (1 | starter), data = df_collapse)
 
 # Check the summary of the model
 summary(m1)
 
 # Check the diagnostic plots
 plot(m1)
+
+sjPlot::tab_model(m1)

@@ -35,7 +35,9 @@ p1 <- player_team_df %>%
   scale_y_continuous(labels = scales::comma_format(accuracy = 1)) +
   theme_classic() + 
   theme(legend.position = "NA"
-        , legend.title = element_blank()) +
+        , legend.title = element_blank()
+        , text = element_text(size = 22)
+        ) +
   labs(x = "Player Net Rating (log)", y = "Team Win %"
        , title = "Starting and Bench Player Net Rating and\nOverall Team Win Percentage, 2011-23"
        , subtitle = "Bench players are in red, starters are in blue"
@@ -47,15 +49,18 @@ ggsave("02 Output/Starting vs bench shooting over time.png", p1, w = 14, h = 12,
 # let's look at average player win percentage for bench players by year
 p2 <- player_team_df %>% 
   filter(starter == 0) %>%
-  mutate(wiz = ifelse(TEAM_ABBREVIATION == "WAS", "Wizards", "All Other Teams")) %>% 
+  mutate(wiz = ifelse(TEAM_ABBREVIATION == "WAS", "Wizards", "All Other Teams")
+         , season = as.numeric(substr(season, 1, 4))) %>% 
   summarize(mean_win_pct = mean(W_PCT, na.rm=T)
-            , .by = c(yearSeason, wiz)) %>% 
-  ggplot(aes(x = yearSeason, y = mean_win_pct)) +
+            , .by = c(season, wiz)) %>% 
+  ggplot(aes(x = season, y = mean_win_pct)) +
   geom_textline(aes(col = wiz, label = wiz), hjust = 0.08, lwd = 2, size = 6) +
   scale_color_manual(values = c("#E41134", "#6C6463")) +
   scale_x_continuous(breaks = c(seq(2012, 2022, 2))) +
   theme_classic() + 
-  theme(legend.position = "NA") +
+  theme(legend.position = "NA"
+        , text = element_text(size = 22)
+        ) +
   labs(x = "", y = "Win %"
        , title = "Average Per Season Bench Player Win Percentage Over the Past Decade"
        , caption = "data: nba.com/stats\nwizardspoints.substack.com"
@@ -71,14 +76,16 @@ p3 <- player_team_df %>%
          & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
   ) %>% 
   mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
-  select(season, team, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  select(season, teamName, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
   pivot_longer(cols = c(5:6)) %>% 
   ggplot(aes(x = value)) +
   geom_density(aes(fill = starter), alpha = 0.6) +
   scale_fill_manual(values = c("#E41134", "#00265B")) +
   theme_classic() + 
   theme(legend.title = element_blank()
-        , legend.position = "top") +
+        , legend.position = "top"
+        , text = element_text(size = 22)
+        ) +
   facet_wrap(~name) +
   labs(title = "Starting and Bench Player Offense and\nDefensive Rating Distribution, 2011-23"
        , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
@@ -92,7 +99,7 @@ player_team_df %>%
          & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
   ) %>% 
   mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
-  select(season, team, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  select(season, teamName, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
   pivot_longer(cols = c(5:6)) %>% 
   group_by(name, starter) %>% 
   summarize(mean = mean(value, na.rm=T))
@@ -113,20 +120,22 @@ p4 <- player_team_df %>%
          & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
   ) %>% 
   mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
-  select(season, team, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  select(season, teamName, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
   pivot_longer(cols = c(5:6)) %>% 
   ggplot(aes(x = value)) +
   geom_density(aes(fill = starter), alpha = 0.6) +
   scale_fill_manual(values = c("#E41134", "#00265B")) +
   theme_classic() + 
   theme(legend.title = element_blank()
-        , legend.position = "top") +
+        , legend.position = "top"
+        , text = element_text(size = 22)
+        ) +
   facet_wrap(~name+season) +
   labs(title = "Starting and Bench Player Offense and\nDefensive Rating Distribution by Season"
        , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
   )
 
-ggsave("02 Output/distribution of off and def ratings by season.png", p4, w = 14, h = 12, dpi = 300)
+ggsave("02 Output/distribution of off and def ratings by season.png", p4, w = 20, h = 14, dpi = 300)
 
 # let's take a look at the gap between starters and bench players this season
 p5 <-
@@ -152,7 +161,9 @@ p5 <-
   geom_point(aes(color = starter, size = Minutes)) +
   scale_color_manual(values = c("#E41134", "#00265B")) +
   theme_classic() + 
-  theme(legend.position = "NA") +
+  theme(legend.position = "NA"
+        , text = element_text(size = 22)
+        ) +
   labs(y = "", title = "Starting and Bench Player Net Rating by Team for the 2022-23 Season"
        , subtitle = "Only players with 10 or more games played considered\ndots are sized by average minutes"
        , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
@@ -185,7 +196,9 @@ p6 <-
   geom_point(aes(color = starter, size = Minutes)) +
   scale_color_manual(values = c("#E41134", "#00265B")) +
   theme_classic() + 
-  theme(legend.position = "NA") +
+  theme(legend.position = "NA"
+        , text = element_text(size = 22)
+  ) +
   labs(y = "", title = "Starting and Bench Player Net Rating by Season for the Wizards"
        , subtitle = "Only players with 10 or more games played considered\ndots are sized by average minutes"
        , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
