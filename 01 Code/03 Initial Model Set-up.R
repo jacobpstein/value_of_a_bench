@@ -9,6 +9,7 @@
 # Load packages
 library(tidyverse) # the usual
 library(readr) # fancy data load 
+library(gt) # nice tables
 library(lme4) # multi-level models
 library(tidymodels) # just to play around
 tidymodels_prefer() # resolve conflicts
@@ -122,6 +123,29 @@ lm_fit %>%
   extract_fit_engine() %>% 
   summary()
 
+df_test_res <- predict(lm_fit, new_data = df_test) %>% bind_cols(df_test %>% select(pctWins))
+df_test_res 
+
+# good fit
+ggplot(df_test_res, aes(x = pctWins, y = .pred)) + 
+  # Create a diagonal line:
+  geom_abline(lty = 2) + 
+  geom_point(alpha = 0.5, col = "blue") + 
+  labs(y = "Predicted Win %", x = "Win %") +
+  theme_classic()
+
+# this is nice as far as prediction, but we're more interested in inference
+# so we need to isolate the effect of starting
+
+
+
+
+
+
+
+
+
+# sandbox------
 # Define the multi-level model
 m1 <- lmer(pctWins ~ OFF_RATING + AGE + GP + MIN + USG_PCT + (1 | team) + (1 | starter), data = df)
 
