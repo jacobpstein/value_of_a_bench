@@ -145,13 +145,6 @@ bench_df <- do.call(rbind, named_df_list) %>%
 
 player_df <- starter_df %>% bind_rows(bench_df)
 
-player_team_df <- player_df %>% 
-  # add in our team totals
-  left_join(team_df2, by = c("TEAM_ID" = "idTeam",  "season" = "slugSeason"))
-
-write.csv(player_team_df, "03 Data/advanced player stats and team stats.csv")
-
-
 # to pull team stats from NBA run the code below:
 
 # create null object
@@ -190,4 +183,13 @@ named_df_team_list <- Map(function(df_team, name) {transform(df_team, season = n
 # this is more or less what I imagine we'll work with for analysis
 team_df <- do.call(rbind, named_df_team_list) %>% 
   mutate(across(-c(2, 55), as.numeric)) 
+
+
+player_team_df <- player_df %>% 
+  # add in our team totals
+  left_join(team_df2, by = c("TEAM_ID" = "idTeam",  "season" = "slugSeason"))
+
+write.csv(player_team_df, "03 Data/advanced player stats and team stats.csv")
+
+
   
