@@ -32,6 +32,25 @@ df_collapse <- df %>%
   group_by(teamName, nameTeam, season, yearSeason, starter) %>% 
   summarize_all(.funs = mean, na.rm=T) 
 
+# let's just get a sense of the relationships in our data for starters
+df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
+  select(-teamName, -nameTeam, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
+  cor() %>%
+  as_tibble(rownames = "var") %>%
+  mutate(across(-var, round, 4)) %>%
+  gt(rowname_col = "var")
+
+# and for the bench
+df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
+  select(-teamName, -nameTeam, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
+  cor() %>%
+  as_tibble(rownames = "var") %>%
+  mutate(across(-var, round, 4)) %>%
+  gt(rowname_col = "var")
+
+# net rating, PIE, offensive rating, true shooting, fg pct, player win pct all stand out
+# offsenive rating and net rating are redundant with each other, same with ts and ft pct
+
 # train-test split
 df_split <- initial_split(df_collapse, prop = 0.80, strata = yearSeason)
 df_train <- training(df_split)
@@ -50,8 +69,9 @@ lm_wflow <-
   add_model(lm_model) %>% 
   add_variables(outcome = pctWins, predictors = c(AGE
                                                   , GP
-                                                  , MIN
-                                                  , USG_PCT
+                                                  , NET_RATING
+                                                  , TS_PCT
+                                                  , W_PCT
                                                   , starter))
 
 lm_fit <- fit(lm_wflow, df_train)
@@ -61,7 +81,7 @@ ctrl_preds <- control_resamples(save_pred = TRUE)
 
 resample_basic <- fit_resamples(lm_wflow, df_folds, control = ctrl_preds)
 
-collect_metrics(resample_basic) # yikes
+collect_metrics(resample_basic) # ok
 
 
 # Define the multi-level model
