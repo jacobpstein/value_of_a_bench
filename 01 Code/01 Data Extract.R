@@ -21,19 +21,6 @@ set.seed(20222712)
 # going to need to expand the conneciton size for our api calls
 Sys.setenv(VROOM_CONNECTION_SIZE = 131072*3)
 
-# get team info
-team_df <- teams_annual_stats(all_active_teams = T,
-                   modes = c("Totals"),
-                   return_message = TRUE,
-                   nest_data =F)
-
-# add in team abbreviations
-team_abbrv_df <- nba_teams() %>% select(nameTeam, slugTeam)
-  
-# combine with our team_df
-team_df2 <- team_df %>% 
-  left_join(team_abbrv_df %>% select(nameTeam, slugTeam) %>% unique()) 
-  
 # pull game to game stats from NBA's API directly---------
 # doing this on a per 100 posession basis
 # this should take anywhere from one to five minutes or so depending on 
@@ -145,6 +132,8 @@ bench_df <- do.call(rbind, named_df_list) %>%
 
 player_df <- starter_df %>% bind_rows(bench_df)
 
+write.csv(player_df, "03 Data/advanced player stats.csv")
+
 # to pull team stats from NBA run the code below:
 
 # create null object
@@ -154,7 +143,7 @@ for (season in start_season:end_season) {
   season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
   
   # create a url object, this can be updated depending on the NBA end point we want
-  url <- paste0("https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Totals&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
+  url <- paste0("https://stats.nba.com/stats/leaguedashteamstats?Conference=&DateFrom=&DateTo=&Division=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possession&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
                 , season_string
                 , "&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=&TeamID=0&TwoWay=0&VsConference=&VsDivision=")
   # query the site
@@ -182,12 +171,18 @@ named_df_team_list <- Map(function(df_team, name) {transform(df_team, season = n
 # combine all of our list objects into a data frame
 # this is more or less what I imagine we'll work with for analysis
 team_df <- do.call(rbind, named_df_team_list) %>% 
-  mutate(across(-c(2, 55), as.numeric)) 
+  mutate(across(-c(2, 55), as.numeric)) %>% 
+  select(-contains("RANK")) %>% 
+  rename_with( ~ paste("team", .x, sep = "_")) %>% 
+  rename(TEAM_ID = team_TEAM_ID
+         , TEAM_NAME = team_TEAM_NAME
+         , season = team_season
+         )
 
 
 player_team_df <- player_df %>% 
   # add in our team totals
-  left_join(team_df2, by = c("TEAM_ID" = "idTeam",  "season" = "slugSeason"))
+  left_join(team_df)
 
 write.csv(player_team_df, "03 Data/advanced player stats and team stats.csv")
 

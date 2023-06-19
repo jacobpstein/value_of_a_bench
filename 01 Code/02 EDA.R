@@ -27,7 +27,7 @@ player_team_df <- read_csv("03 Data/advanced player stats and team stats.csv", c
 # take a look at bench vs starter net rating and win percentage
 p1 <- player_team_df %>% 
   filter(is.na(starter)!=T) %>% 
-  ggplot(aes(x = log(NET_RATING), y = pctWins)) +
+  ggplot(aes(x = log(NET_RATING), y = team_W_PCT)) +
   geom_point(aes(col = factor(starter)), alpha = 0.3, shape = 21) +
   geom_smooth(aes(col = factor(starter)), method = "lm", se = F) +
   facet_wrap(~season) +
@@ -41,7 +41,7 @@ p1 <- player_team_df %>%
   labs(x = "Player Net Rating (log)", y = "Team Win %"
        , title = "Starting and Bench Player Net Rating and\nOverall Team Win Percentage, 2011-23"
        , subtitle = "Bench players are in red, starters are in blue"
-       , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
+       , caption = "All data are per 100 possessions\ndata: nba.com/stats\nwizardspoints.substack.com"
   )
 
 ggsave("02 Output/Starting vs bench shooting over time.png", p1, w = 14, h = 12, dpi = 300)
@@ -63,7 +63,7 @@ p2 <- player_team_df %>%
         ) +
   labs(x = "", y = "Win %"
        , title = "Average Per Season Bench Player Win Percentage Over the Past Decade"
-       , caption = "data: nba.com/stats\nwizardspoints.substack.com"
+       , caption = "All data are per 100 posessions\ndata: nba.com/stats\nwizardspoints.substack.com"
   ) 
 
 ggsave("02 Output/average per season bench player win pct.png", p2, w = 14, h = 12, dpi = 300)
@@ -76,7 +76,7 @@ p3 <- player_team_df %>%
          & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
   ) %>% 
   mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
-  select(season, teamName, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  select(season, TEAM_NAME, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
   pivot_longer(cols = c(5:6)) %>% 
   ggplot(aes(x = value)) +
   geom_density(aes(fill = starter), alpha = 0.6) +
@@ -88,7 +88,7 @@ p3 <- player_team_df %>%
         ) +
   facet_wrap(~name) +
   labs(title = "Starting and Bench Player Offense and\nDefensive Rating Distribution, 2011-23"
-       , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
+       , caption = "All data are per 100 posessions\ndata: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
   )
 
 ggsave("02 Output/distribution of off and def ratings.png", p3, w = 14, h = 12, dpi = 300)
@@ -99,7 +99,7 @@ player_team_df %>%
          & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
   ) %>% 
   mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
-  select(season, teamName, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  select(season, TEAM_NAME, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
   pivot_longer(cols = c(5:6)) %>% 
   group_by(name, starter) %>% 
   summarize(mean = mean(value, na.rm=T))
@@ -120,7 +120,7 @@ p4 <- player_team_df %>%
          & GP>=10 # trim the tails a bit by limiting this to players with 10 or more games in a season
   ) %>% 
   mutate(starter = ifelse(starter == 1, "Starter", "Bench Player")) %>% 
-  select(season, teamName, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
+  select(season, TEAM_NAME, PLAYER_ID, starter, "Offensive Rating" = OFF_RATING, "Defensive Rating" = DEF_RATING) %>% 
   pivot_longer(cols = c(5:6)) %>% 
   ggplot(aes(x = value)) +
   geom_density(aes(fill = starter), alpha = 0.6) +
@@ -132,7 +132,7 @@ p4 <- player_team_df %>%
         ) +
   facet_wrap(~name+season) +
   labs(title = "Starting and Bench Player Offense and\nDefensive Rating Distribution by Season"
-       , caption = "data: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
+       , caption = "Data are per 100 posessions\ndata: basketball-reference.com, nba.com/stats\nwizardspoints.substack.com"
   )
 
 ggsave("02 Output/distribution of off and def ratings by season.png", p4, w = 20, h = 14, dpi = 300)
@@ -141,19 +141,19 @@ ggsave("02 Output/distribution of off and def ratings by season.png", p4, w = 20
 p5 <-
   player_team_df %>%
   filter(season == "2022-23" & is.na(starter)!=T & GP>=10) %>% 
-  select(teamName, NET_RATING, starter, MIN) %>% 
+  select(TEAM_NAME, NET_RATING, starter, MIN) %>% 
   mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>% 
   summarize("Net Rating" = mean(NET_RATING)
-            , "Minutes" = mean(MIN), .by = c(teamName, starter)) %>% 
-  ggplot(aes(x = `Net Rating`, y = teamName)) +
+            , "Minutes" = mean(MIN), .by = c(TEAM_NAME, starter)) %>% 
+  ggplot(aes(x = `Net Rating`, y = TEAM_NAME)) +
   ggforce::geom_link(data =
                  player_team_df %>%
                  filter(season == "2022-23" & is.na(starter)!=T & GP>=10) %>%
-                 select(teamName, NET_RATING, starter, MIN) %>%
+                 select(TEAM_NAME, NET_RATING, starter, MIN) %>%
                  mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>%
                  summarize("Net Rating" = mean(NET_RATING)
-                           ,  .by = c(teamName, starter)) %>% pivot_wider(names_from = starter, values_from = `Net Rating`)
-                 , aes(x = `Bench Players`, xend = Starters, y = reorder(teamName, Starters), yend = reorder(teamName, Starters)
+                           ,  .by = c(TEAM_NAME, starter)) %>% pivot_wider(names_from = starter, values_from = `Net Rating`)
+                 , aes(x = `Bench Players`, xend = Starters, y = reorder(TEAM_NAME, Starters), yend = reorder(TEAM_NAME, Starters)
                        , alpha = stat(index)
                        )
                , color = "gray70"
@@ -175,7 +175,7 @@ ggsave("02 Output/net rating gap for 2022-23.png", p5, w = 16, h = 12, dpi = 300
 # let's look at the same figure but just for the Wizards
 p6 <- 
   player_team_df %>%
-  filter(teamName == "Wizards" & is.na(starter)!=T & GP>=10) %>% 
+  filter(TEAM_NAME == "Washington Wizards" & is.na(starter)!=T & GP>=10) %>% 
   select(season, NET_RATING, starter, MIN) %>% 
   mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>% 
   summarize("Net Rating" = mean(NET_RATING)
@@ -183,7 +183,7 @@ p6 <-
   ggplot(aes(x = `Net Rating`, y = fct_rev(season))) +
   ggforce::geom_link(data =
                        player_team_df %>%
-                       filter(teamName == "Wizards" & is.na(starter)!=T & GP>=10) %>% 
+                       filter(TEAM_NAME == "Washington Wizards" & is.na(starter)!=T & GP>=10) %>% 
                        select(season, NET_RATING, starter, MIN) %>%
                        mutate(starter = ifelse(starter == 1, "Starters", "Bench Players")) %>%
                        summarize("Net Rating" = mean(NET_RATING)
@@ -211,6 +211,6 @@ ggsave("02 Output/net rating gap for the wizards.png", p6, w = 16, h = 12, dpi =
 
 # let's look at the actual Wizards data
 player_team_df %>%
-  filter(teamName == "Wizards" & season == "2022-23" & is.na(starter)!=T & GP>=10) %>% 
+  filter(TEAM_NAME == "Washington Wizards" & season == "2022-23" & is.na(starter)!=T & GP>=10) %>% 
   select(PLAYER_NAME, NET_RATING, starter, MIN) %>% 
   arrange(desc(MIN), desc(NET_RATING))

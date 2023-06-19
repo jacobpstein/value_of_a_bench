@@ -28,47 +28,53 @@ df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = c
 
 df_collapse <- df %>% 
   # drop our character variables
-  select(-PLAYER_NAME, -PLAYER_ID,-cityTeam, -modeSearch, -TEAM_ABBREVIATION,-NICKNAME, -descriptionNBAFinalsAppearance, -isNBAChampion) %>% 
+  select(where(is.numeric), TEAM_NAME, season, starter, everything()) %>% 
   # collapse by team, season, and starter
-  group_by(teamName, season, starter) %>% 
+  group_by(TEAM_NAME, season, starter) %>% 
   summarize_all(.funs = mean, na.rm=T) %>% 
   ungroup()
 
-# let's just get a sense of the relationships in our data for starters
+# let's just get a sense of the relationships in our data for starters and win percentage
 df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
-  select(-teamName, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
+  select(where(is.numeric)) %>% 
   cor() %>%
   as_tibble(rownames = "var") %>%
   mutate(across(-var, round, 4)) %>%
+  select(var, team_W_PCT) %>% 
+  arrange(desc(team_W_PCT)) %>% 
   gt(rowname_col = "var")
 
 # and for the bench
 df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
-  select(-teamName, -season, -contains("RANK")) %>% select(1:47) %>% select(-contains("E_"), -contains("sp_work"), -starter) %>% 
+  select(where(is.numeric)) %>% 
   cor() %>%
   as_tibble(rownames = "var") %>%
   mutate(across(-var, round, 4)) %>%
+  select(var, team_W_PCT) %>% 
+  arrange(desc(team_W_PCT)) %>% 
   gt(rowname_col = "var")
 
-
-# net rating, PIE, offensive rating, true shooting, fg pct, player win pct all stand out
-# offsenive rating and net rating are redundant with each other, same with ts and ft pct
+# net rating, PIE, age, offensive rating, and player win pct all stand out
+# offsenive rating and net rating are redundant with each other
 
 # we see a similar trend if we keep the data as is, but the magnitudes are lower
 
 # let's just get a sense of the relationships in our data for starters
 df %>% ungroup() %>% filter(starter == 1) %>% 
-  select(-teamName, -season, -contains("RANK"), -contains("E_"), -contains("sp_work"), -PLAYER_NAME, -NICKNAME, -TEAM_ABBREVIATION, -slugTeam, -descriptionNBAFinalsAppearance, -c(starter_char:cityTeam)) %>% 
+  select(where(is.numeric)) %>% 
   cor() %>% as_tibble(rownames = "var") %>%
   mutate(across(-var, round, 4)) %>%
+  select(var, team_W_PCT) %>% 
+  arrange(desc(team_W_PCT)) %>% 
   gt(rowname_col = "var")
 
 df %>% ungroup() %>% filter(starter == 0 & GP>=10) %>% 
-  select(-teamName, -season, -contains("RANK"), -contains("E_"), -contains("sp_work"), -PLAYER_NAME, -NICKNAME, -TEAM_ABBREVIATION, -slugTeam, -descriptionNBAFinalsAppearance, -c(starter_char:cityTeam)) %>% 
+  select(where(is.numeric)) %>% 
   cor() %>% as_tibble(rownames = "var") %>%
   mutate(across(-var, round, 4)) %>%
+  select(var, team_W_PCT) %>% 
+  arrange(desc(team_W_PCT)) %>% 
   gt(rowname_col = "var")
-
 
 # train-test split
 df_split <- initial_split(df_collapse, prop = 0.80, strata = season)
@@ -86,10 +92,10 @@ lm_model <- linear_reg() %>%
 lm_wflow <- 
   workflow() %>% 
   add_model(lm_model) %>% 
-  add_variables(outcome = pctWins, predictors = c(AGE
+  add_variables(outcome = team_W_PCT, predictors = c(AGE
                                                   , GP
                                                   , NET_RATING
-                                                  , TS_PCT
+                                                  , PIE
                                                   , W_PCT
                                                   , starter
                                                   , MIN
@@ -113,7 +119,7 @@ lm_fit %>%
 # now we should add some interaction terms to specifically account for 
 # we need to add a new recipe
 simple_df <- 
-  recipe(pctWins ~ AGE + NET_RATING + GP + TS_PCT + starter + W_PCT + MIN
+  recipe(team_W_PCT ~ AGE + NET_RATING + GP + TS_PCT + starter + W_PCT + MIN
          , data = df_train) %>%
   step_interact( ~starter:all_numeric_predictors()) 
 simple_df
@@ -140,11 +146,11 @@ lm_fit %>%
   extract_fit_engine() %>% 
   summary()
 
-df_test_res <- predict(lm_fit, new_data = df_test) %>% bind_cols(df_test %>% select(pctWins))
+df_test_res <- predict(lm_fit, new_data = df_test) %>% bind_cols(df_test %>% select(team_W_PCT))
 df_test_res 
 
 # good fit
-ggplot(df_test_res, aes(x = pctWins, y = .pred)) + 
+ggplot(df_test_res, aes(x = team_W_PCT, y = .pred)) + 
   # Create a diagonal line:
   geom_abline(lty = 2) + 
   geom_point(alpha = 0.5, col = "blue") + 
@@ -157,7 +163,7 @@ ggplot(df_test_res, aes(x = pctWins, y = .pred)) +
 
 # sandbox------
 # Define the multi-level model
-m1 <- lmer(pctWins ~ NET_RATING + AGE + GP + MIN + USG_PCT + PIE + TS_PCT  + (1 | teamName) + (1 | starter), data = df_collapse)
+m1 <- lmer(team_W_PCT ~ NET_RATING + AGE + GP + MIN + USG_PCT + PIE + TS_PCT  + (1 | teamName) + (1 | starter), data = df_collapse)
 
 # Check the summary of the model
 summary(m1)
