@@ -56,7 +56,7 @@ for (season in start_season:end_season) {
   season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
   
   # create a url object, this can be updated depending on the NBA end point we want
-  url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
+  url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Totals&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
   , season_string
   , "&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=Starters&TeamID=0&VsConference=&VsDivision=&Weight=")
   # query the site
@@ -97,7 +97,7 @@ for (season in start_season:end_season) {
   season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
   
   # create a url object, this can be updated depending on the NBA end point we want
-  url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Per100Possessions&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
+  url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Advanced&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Totals&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
                 , season_string
                 , "&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=Bench&TeamID=0&VsConference=&VsDivision=&Weight=")
   # query the site
@@ -131,7 +131,7 @@ bench_df <- do.call(rbind, named_df_list) %>%
 
 player_df <- starter_df %>% bind_rows(bench_df)
 
-write.csv(player_df, "03 Data/advanced player stats.csv")
+write.csv(player_df, "03 Data/total player stats.csv")
 
 # to pull team stats from NBA run the code below:
 
