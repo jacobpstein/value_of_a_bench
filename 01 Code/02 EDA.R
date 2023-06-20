@@ -44,6 +44,8 @@ p1 <- player_team_df %>%
        , caption = "All data are per 100 possessions\ndata: nba.com/stats\nwizardspoints.substack.com"
   )
 
+p1
+
 ggsave("02 Output/Starting vs bench shooting over time.png", p1, w = 14, h = 12, dpi = 300)
 
 # let's look at average player win percentage for bench players by year

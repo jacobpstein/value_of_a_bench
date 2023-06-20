@@ -8,7 +8,6 @@
 
 # Load packages
 library(tidyverse) # the usual
-library(nbastatR) # api wrapper, super buggy
 library(janitor) # for easy cross-tabs and a few other aesthetic fixes
 library(lubridate) # dates
 library(rstanarm) # Bayesian models
