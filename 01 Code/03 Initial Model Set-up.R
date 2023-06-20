@@ -35,17 +35,19 @@ df_collapse <- df %>%
   ungroup()
 
 # let's just get a sense of the relationships in our data for starters and win percentage
-df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
-  select(where(is.numeric)) %>% 
+df_collapse %>% ungroup() %>% filter(starter == 1) %>%
+  select(where(is.numeric)) %>%
   cor() %>%
   as_tibble(rownames = "var") %>%
   mutate(across(-var, round, 4)) %>%
-  select(var, team_W_PCT) %>% 
-  arrange(desc(team_W_PCT)) %>% 
+  select(var
+         , team_W_PCT
+         ) %>%
+  arrange(desc(team_W_PCT)) %>%
   gt(rowname_col = "var")
 
 # and for the bench
-df_collapse %>% ungroup() %>% filter(starter == 1) %>% 
+df_collapse %>% ungroup() %>% filter(starter == 0) %>% 
   select(where(is.numeric)) %>% 
   cor() %>%
   as_tibble(rownames = "var") %>%
