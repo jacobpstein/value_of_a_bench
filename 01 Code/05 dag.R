@@ -1,5 +1,6 @@
 library(dagitty)
 library(ggdag)
+library(tidyverse)
 
 our_dag <- dagitty('dag {
   "Bench Performance" [exposure,pos="-1.823,-0.308"]
@@ -13,4 +14,5 @@ our_dag <- dagitty('dag {
   Injuries -> "Team Win Percentage"
 }')
 
-ggdag(our_dag)        
+ggdag(our_dag) +
+  theme_light()
