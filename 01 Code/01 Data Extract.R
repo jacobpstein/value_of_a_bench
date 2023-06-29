@@ -45,13 +45,14 @@ headers <- c(
   `Accept-Language` = 'en-US,en;q=0.9'
 )
 
-# Specify the seasons of interest
+# Specify the seasons of interest---
 start_season <- 2011
 end_season <- 2022
 
-# create null object
+# create null object----
 df <- NULL
 
+# we need to run this to get the advanced numbers and then to get totals just for minutes
 for (season in start_season:end_season) {
   season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
   
@@ -87,6 +88,52 @@ starter_df <- do.call(rbind, named_df_list) %>%
          , starter = 1
          , starter_char = "Starter") %>% 
   select(-contains("RANK"))
+
+# run again but for totals and traditional box stats---
+
+# create null object----
+df <- NULL
+
+# we need to run this to get the advanced numbers and then to get totals just for minutes
+for (season in start_season:end_season) {
+  season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
+  
+  # create a url object, this can be updated depending on the NBA end point we want
+  url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Totals&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season=" 
+                , season_string
+                , "&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=Starters&TeamID=0&VsConference=&VsDivision=&Weight=")
+  # query the site
+  res <- GET(url = url, add_headers(.headers=headers))
+  
+  # convert to json
+  json_res <- fromJSON(content(res, "text"))
+  
+  # convert to a dataframe
+  tmp_dat <- data.frame(json_res$resultSets$rowSet[[1]]) 
+  
+  # the json file contains multiple objects with headers and values split, add the headers back in
+  names(tmp_dat) <- data.frame(json_res[["resultSets"]][["headers"]])$c..PLAYER_ID....PLAYER_NAME....NICKNAME....TEAM_ID....TEAM_ABBREVIATION...
+  
+  # toss all of our data frames for each year into a list
+  df[[season_string]] <- tmp_dat
+  
+}
+
+# we have the season name as the name of each list
+# let's create a function to bring the season into each data frame
+named_df_list <- Map(function(df, name) {transform(df, season = name)}, df, names(df))
+
+# combine all of our list objects into a data frame
+# this is more or less what I imagine we'll work with for analysis
+starter_df_trad <- do.call(rbind, named_df_list) %>% 
+  mutate(across(-c(2, 3, 5, 67), as.numeric)
+         , starter = 1
+         , starter_char = "Starter") %>% 
+  select(-contains("RANK"))
+
+starter_df <- starter_df %>% select(-MIN) %>% 
+              left_join(starter_df_trad %>% select(PLAYER_ID, PLAYER_NAME, TEAM_ID, MIN, season))
+
 
 # do the same but for bench players
 
@@ -128,6 +175,51 @@ bench_df <- do.call(rbind, named_df_list) %>%
          , starter = 0
          , starter_char = "Bench") %>% 
   select(-contains("RANK"))
+
+# now let's get total bench minutes---
+
+# create null object
+df <- NULL
+
+for (season in start_season:end_season) {
+  season_string <- paste0(season, "-", (season + 1) %% 100)  # Convert season to "yyyy-yy" format
+  
+  # create a url object, this can be updated depending on the NBA end point we want
+  url <- paste0("https://stats.nba.com/stats/leaguedashplayerstats?College=&Conference=&Country=&DateFrom=&DateTo=&Division=&DraftPick=&DraftYear=&GameScope=&GameSegment=&Height=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=Totals&Period=0&PlayerExperience=&PlayerPosition=&PlusMinus=N&Rank=N&Season="
+                , season_string
+                , "&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&StarterBench=Bench&TeamID=0&VsConference=&VsDivision=&Weight=")
+  # query the site
+  res <- GET(url = url, add_headers(.headers=headers))
+  
+  # convert to json
+  json_res <- fromJSON(content(res, "text"))
+  
+  # convert to a dataframe
+  tmp_dat <- data.frame(json_res$resultSets$rowSet[[1]]) 
+  
+  # the json file contains multiple objects with headers and values split, add the headers back in
+  names(tmp_dat) <- data.frame(json_res[["resultSets"]][["headers"]])$c..PLAYER_ID....PLAYER_NAME....NICKNAME....TEAM_ID....TEAM_ABBREVIATION...
+  
+  # toss all of our data frames for each year into a list
+  df[[season_string]] <- tmp_dat
+  
+}
+
+# we have the season name as the name of each list
+# let's create a function to bring the season into each data frame
+named_df_list <- Map(function(df, name) {transform(df, season = name)}, df, names(df))
+
+# combine all of our list objects into a data frame
+# this is more or less what I imagine we'll work with for analysis
+bench_df_trad <- do.call(rbind, named_df_list) %>% 
+  mutate(across(-c(2, 3, 5, 67), as.numeric)
+         , starter = 0
+         , starter_char = "Bench") %>% 
+  select(-contains("RANK"))
+
+
+bench_df <- bench_df %>% select(-MIN) %>% 
+  left_join(bench_df_trad %>% select(PLAYER_ID, PLAYER_NAME, TEAM_ID, MIN, season))
 
 player_df <- starter_df %>% bind_rows(bench_df)
 
@@ -285,8 +377,9 @@ overall_net <- overall_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, NET_RATING,
 df_starter2 <- df_starter %>% left_join(net_rating_df) %>% 
   mutate(net_rating_start_status = case_when(starter == 1 ~ starter_net
                                              , starter == 0 ~ bench_net)) %>% 
-  select(-starter_net, -bench_net)  %>% 
-  left_join(overall_net)
+  # select(-starter_net, -bench_net)  %>% 
+  left_join(overall_net) %>% 
+  left_join(min_df)
 
 df_538_starter <- df_538 %>% 
   left_join(df_starter2 %>% 
