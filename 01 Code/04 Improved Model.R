@@ -133,7 +133,6 @@ check_model(m2)
 m3 <- lm(team_w_pct ~ 
            predator_total
          + mp:starter_char
-         + team_name
          , data = df_538)
 
 
