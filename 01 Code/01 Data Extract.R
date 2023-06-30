@@ -410,7 +410,9 @@ df_538_starter_team <- df_538_starter %>% left_join(team_df %>%
                                select(team_id, team_name, team_w, team_l, team_w_pct, "season_char" = season) %>% 
                                mutate(season = as.numeric(paste0("20", substr(season_char, 6, 7))))
                              ) %>% 
-  mutate(starter_char = ifelse(starter == 1, "Starter", "Bench"))
+  mutate(starter_char = ifelse(starter == 1, "Starter", "Bench")
+         , team_name = ifelse(team_name == "Los Angeles Clippers", "LA Clippers"
+                       , ifelse(team_name == "Charlotte Bobcats", "Charlotte Hornets", team_name)))
 
 write.csv(df_538_starter_team, "03 Data/player and team stats with 538 data.csv")
 

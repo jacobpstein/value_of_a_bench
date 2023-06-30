@@ -18,6 +18,10 @@ set.seed(5292023)
 # read in data
 player_team_df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip()))
 
+# import 538 data
+df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types = cols(...1 = col_skip())) %>% 
+  mutate(bench = ifelse(starter == 0, 1, 0))
+
 # a few things to look into:
 # bench player wins vs. starting player wins
 # starters vs. bench relationship
@@ -216,3 +220,27 @@ player_team_df %>%
   filter(TEAM_NAME == "Washington Wizards" & season == "2022-23" & is.na(starter)!=T & GP>=10) %>% 
   select(PLAYER_NAME, NET_RATING, starter, MIN) %>% 
   arrange(desc(MIN), desc(NET_RATING))
+
+# look at RAPTOR over time----
+p7 <- df_538 %>% 
+  filter(is.na(starter)!=T) %>%
+  group_by(season, team_name, starter_char) %>% 
+  summarize(raptor = mean(raptor_total)) %>% 
+  ggplot(aes(x = season, y = raptor)) +
+  geom_line(aes(col = starter_char), size = 2) +
+  scale_color_manual(values = c("#E41134", "#00265B")) +
+  theme_538() + 
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22)
+  ) +
+  labs(x = "", y = "Total Raptor", title = "Average Starting and Bench Player RAPTOR"
+       , subtitle = "Breaking down the FiveThirtyEight data by bench and starters"
+       , caption = "data: fivethirtyeight.com and nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  facet_wrap(~team_name, drop = TRUE) 
+
+p7
+
+ggsave("02 Output/raptor by team.png", p7, w = 16, h = 12, dpi = 300)
+
