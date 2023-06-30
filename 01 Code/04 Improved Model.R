@@ -132,7 +132,7 @@ check_model(m2)
 # interaction model using 538 data----
 m3 <- lm(team_w_pct ~ 
            predator_total
-         + mp:starter_char
+         + mp*starter_char
          , data = df_538)
 
 
@@ -141,7 +141,50 @@ performance(m3)
 check_model(m3)
 
 # visualize the predicted interaction effect
-p1 <- plot_model(m3, type = "int")
+p1 <- plot_model(m3, type = "int") + theme_538() +
+  labs(x = "Minutes Played"
+       , y = "Team Win %"
+       , title = "Predicted Team Win Percentage by Player Status"
+       , caption = "data: fivethirtyeight.com and nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22))
+
+p1
+
+ggsave("02 Output/interaction model results.png", p1, w = 16, h = 12, dpi = 300)
+
+
+# interaction model using 538 data for the wizards----
+m3_wiz <- lm(team_w_pct ~ 
+           predator_total
+         + mp*starter_char
+         , data = df_538[df_538$team_name=="Washington Wizards",])
+
+
+summary(m3_wiz)
+performance(m3)
+check_model(m3)
+
+# visualize the predicted interaction effect
+p1_wiz <- plot_model(m3_wiz, type = "int") + theme_538() +
+  labs(x = "Minutes Played"
+       , y = "Team Win %"
+       , title = "Predicted Team Win Percentage by Player Status for the Washington Wizards"
+       , caption = "data: fivethirtyeight.com and nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22))
+
+p1_wiz
+
+ggsave("02 Output/interaction model results for the Wizards.png", p1_wiz, w = 16, h = 12, dpi = 300)
 
 # regression tree----
 m2 <- rpart(
