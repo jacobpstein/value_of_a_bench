@@ -9,6 +9,8 @@
 # Load packages
 library(tidyverse) # the usual
 library(readr) # fancy data load 
+library(hrbrthemes) # neat ggplot themes
+library(sjPlot) # 538 theme
 library(geomtextpath) # for labeled lines
 
 
@@ -242,5 +244,26 @@ p7 <- df_538 %>%
 
 p7
 
-ggsave("02 Output/raptor by team.png", p7, w = 16, h = 12, dpi = 300)
+ggsave("02 Output/raptor by team.png", p7, w = 28, h = 12, dpi = 300)
+
+p8 <- df_538 %>% 
+  filter(is.na(starter)!=T) %>%
+  group_by(season, team_name, starter_char) %>% 
+  summarize(raptor = mean(net_rating_start_status)) %>% 
+  ggplot(aes(x = season, y = raptor)) +
+  geom_line(aes(col = starter_char), size = 2) +
+  scale_color_manual(values = c("#E41134", "#00265B")) +
+  theme_538() + 
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22)
+  ) +
+  labs(x = "", y = "Total Net Rating", title = "Average Starting and Bench Player Net Rating"
+       , caption = "data: nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  facet_wrap(~team_name, drop = TRUE) 
+
+p8
+
+ggsave("02 Output/net rating by team.png", p8, w = 28, h = 12, dpi = 300)
 
