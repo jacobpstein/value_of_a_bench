@@ -78,16 +78,16 @@ m1 <- lm(team_W_PCT ~
          , data = df_wide)
 
 standardize(m1) # scaled results
-summary(m1)
-performance(m1)
-check_model(m1)
+summary(standardize(m1))
+performance(standardize(m1))
+check_model(standardize(m1))
 
 # 538 model----
 
 df_wide_538 <- df_538 %>% 
   filter(is.na(starter_char)!=T) %>% 
   # drop our character variables
-  select(team_name, season, starter_char, predator_total, team_w_pct) %>% 
+  dplyr::select(team_name, season, starter_char, predator_total, team_w_pct) %>% 
   # collapse by team, season, and starter
   group_by(team_name, season, starter_char) %>% 
   summarize(predator = mean(predator_total, na.rm=T)
@@ -97,11 +97,11 @@ df_wide_538 <- df_538 %>%
   left_join(
     df_538 %>% 
       # drop our character variables
-      select(team_name, season, starter, predator_total, mp, team_w_pct) %>% 
+      dplyr::select(team_name, season, starter, predator_total, mp, team_w_pct) %>% 
       group_by(team_name, season, starter) %>% 
       summarize(total_bench_minutes = sum(mp, na.rm=T)
       ) %>% 
-      filter(starter == 0) %>% select(-starter)
+      filter(starter == 0) %>% dplyr::select(-starter)
   )
 
 df_wide_538 %>% 
