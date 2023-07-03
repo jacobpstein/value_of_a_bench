@@ -190,14 +190,25 @@ p1_wiz
 ggsave("02 Output/interaction model results for the Wizards.png", p1_wiz, w = 16, h = 12, dpi = 300)
 
 # model by team----
-m_group <- df %>% 
+m_group <- df_wide %>% 
   janitor::clean_names() %>% 
-  group_by(team_name) %>% 
-  do(model = lm(team_w_pct ~ 
-                  net_rating
-                + min*starter, data = .))
+  ungroup() %>% 
+  nest_by(team_name) %>%
+  mutate(fit_win_pct = list(lm(team_w_pct ~ 
+                                 bench + starter
+                               + total_bench_minutes, data = data))) %>%
+  summarise(tidy(fit_win_pct))
 
-m_group %>% tidy(model)
+m_group %>% 
+  filter(term == "total_bench_minutes") %>% 
+  arrange(desc(estimate))
+  
+
+team_W_PCT ~ 
+  Bench 
++ Starter
++  total_bench_minutes
+, data = df_wide
 
 # regression tree----
 m2 <- rpart(
