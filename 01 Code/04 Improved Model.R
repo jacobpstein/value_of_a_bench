@@ -11,6 +11,7 @@ library(tidyverse) # the usual
 library(readr) # fancy data load 
 library(rstanarm) # bayesian models
 library(performance) # model assessment
+library(broom) # clean up
 library(sjPlot) # model plots
 library(caret) # for data splitting and training
 library(rpart) # CART
@@ -126,9 +127,9 @@ m2 <- lm(team_w_pct ~
          , data = df_wide_538)
 
 
-summary(m2)
-performance(m2)
-check_model(m2)
+summary(standardize(m2))
+performance(standardize(m2))
+check_model(standardize(m2))
 
 
 # interaction model using 538 data----
@@ -138,9 +139,9 @@ m3 <- lm(team_w_pct ~
          , data = df_538)
 
 
-summary(m3)
-performance(m3)
-check_model(m3)
+summary(standardize(m3))
+performance(standardize(m3))
+check_model(standardize(m3))
 
 # visualize the predicted interaction effect
 p1 <- plot_model(m3, type = "int") + theme_538() +
@@ -163,7 +164,7 @@ ggsave("02 Output/interaction model results.png", p1, w = 16, h = 12, dpi = 300)
 # interaction model using 538 data for the wizards----
 m3_wiz <- lm(team_w_pct ~ 
            predator_total
-         + mp*starter_char
+         + mp*starter
          , data = df_538[df_538$team_name=="Washington Wizards",])
 
 
@@ -187,6 +188,16 @@ p1_wiz <- plot_model(m3_wiz, type = "int") + theme_538() +
 p1_wiz
 
 ggsave("02 Output/interaction model results for the Wizards.png", p1_wiz, w = 16, h = 12, dpi = 300)
+
+# model by team----
+m_group <- df %>% 
+  janitor::clean_names() %>% 
+  group_by(team_name) %>% 
+  do(model = lm(team_w_pct ~ 
+                  net_rating
+                + min*starter, data = .))
+
+m_group %>% tidy(model)
 
 # regression tree----
 m2 <- rpart(
