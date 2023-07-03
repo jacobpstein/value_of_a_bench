@@ -9,12 +9,13 @@
 # Load packages
 library(tidyverse) # the usual
 library(readr) # fancy data load 
-library(rstanarm)
-library(performance)
-library(sjPlot)
-library(caret)
-library(rpart)
-library(rpart.plot)
+library(rstanarm) # bayesian models
+library(performance) # model assessment
+library(sjPlot) # model plots
+library(caret) # for data splitting and training
+library(rpart) # CART
+library(rpart.plot) # plotting cart models
+library(arm) # scaling the data
 
 # set seed
 set.seed(5292023)
@@ -37,7 +38,7 @@ df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types 
 
 df_wide <- df %>% 
   # drop our character variables
-  select(TEAM_NAME, season, starter_char, NET_RATING, team_W_PCT, team_W) %>% 
+  dplyr::select(TEAM_NAME, season, starter_char, NET_RATING, team_W_PCT, team_W) %>% 
   # collapse by team, season, and starter
   group_by(TEAM_NAME, season, starter_char) %>% 
   summarize(NET_RATING = mean(NET_RATING, na.rm=T)
@@ -47,11 +48,12 @@ df_wide <- df %>%
   left_join(
     df %>% 
       # drop our character variables
-      select(TEAM_NAME, season, starter, NET_RATING, MIN, team_W_PCT) %>% 
+      dplyr::select(TEAM_NAME, season, starter, NET_RATING, MIN, team_W_PCT) %>% 
       group_by(TEAM_NAME, season, starter) %>% 
       summarize(total_bench_minutes = sum(MIN, na.rm=T)
                 ) %>% 
-      filter(starter == 0) %>% select(-starter)
+      filter(starter == 0) %>% 
+      dplyr::select(-starter)
   )
 
 df_wide %>% 
@@ -75,7 +77,7 @@ m1 <- lm(team_W_PCT ~
          +  total_bench_minutes
          , data = df_wide)
 
-
+standardize(m1) # scaled results
 summary(m1)
 performance(m1)
 check_model(m1)

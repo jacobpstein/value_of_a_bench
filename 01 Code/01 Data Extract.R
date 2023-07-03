@@ -321,7 +321,10 @@ df_538 <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/maste
 player_team_df2 <- player_team_df %>% 
                           mutate(season_num = as.numeric(substr(season, 1, 4))) %>% 
                           filter(season_num>=2014) %>% 
-                          left_join(df_538, by = c("PLAYER_NAME" = "player_name", "season_num" = "season"))
+                          left_join(df_538, by = c("PLAYER_NAME" = "player_name", "season_num" = "season")) %>% 
+                          mutate(TEAM_NAME = ifelse(TEAM_NAME == "Los Angeles Clippers", "LA Clippers"
+                                                    , ifelse(TEAM_NAME == "Charlotte Bobcats", "Charlotte Hornets"
+                                                             , ifelse(TEAM_NAME == "New Jersey Nets", "Brooklyn Nets", TEAM_NAME))))
 
 write.csv(player_team_df, "03 Data/advanced player stats and team stats.csv")
 
@@ -412,7 +415,8 @@ df_538_starter_team <- df_538_starter %>% left_join(team_df %>%
                              ) %>% 
   mutate(starter_char = ifelse(starter == 1, "Starter", "Bench")
          , team_name = ifelse(team_name == "Los Angeles Clippers", "LA Clippers"
-                       , ifelse(team_name == "Charlotte Bobcats", "Charlotte Hornets", team_name)))
+                       , ifelse(team_name == "Charlotte Bobcats", "Charlotte Hornets"
+                       , ifelse(team_name == "New Jersey Nets", "Brooklyn Nets", team_name))))
 
 write.csv(df_538_starter_team, "03 Data/player and team stats with 538 data.csv")
 
