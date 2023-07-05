@@ -313,7 +313,10 @@ team_df <- do.call(rbind, named_df_team_list) %>%
 
 player_team_df <- player_df %>% 
   # add in our team totals
-  left_join(team_df)
+  left_join(team_df) %>% 
+  mutate(TEAM_NAME = ifelse(TEAM_NAME == "Los Angeles Clippers", "LA Clippers"
+                            , ifelse(TEAM_NAME == "Charlotte Bobcats", "Charlotte Hornets"
+                                     , ifelse(TEAM_NAME == "New Jersey Nets", "Brooklyn Nets", TEAM_NAME))))
 
 # read in 538 RAPTOR data--------
 df_538 <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/nba-raptor/modern_RAPTOR_by_player.csv")
