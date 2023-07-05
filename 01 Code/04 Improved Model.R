@@ -1,5 +1,5 @@
 ###############################################
-# EDA understanding bench Performance
+# Improve linear models to estimate bench Performance
 # Session Info:
 # R version 4.2.1 (2022-06-23)
 # Platform: aarch64-apple-darwin20 (64-bit)
