@@ -76,7 +76,7 @@ df %>%
 
 ```
 
-The intercept and slope values are pretty for benches across different teams. The Nets and Suns have strongly positively correlated bench performance and net ratings, while the Clippers and Warriors have the opposite.
+The intercept and slope values are pretty different for benches across different teams. The Nets and Suns have strongly positively correlated bench performance and net ratings, while the Clippers and Warriors have the opposite.
 
 If we simply include a "starter" predictor in our model, we're estimating different intercepts for starters and bench net ratings--and we know the starter intercept is higher. If we want to know how starter status affects the slope of win percentage, that's a different specification, one with interactions. The interaction model essentially asks whether or not there is there a difference in the effect of net rating on win percentage for starters and bench players? If we don't include the interaction we assume that the slope between net rating and win percentage is the same for both starters and bench players.
 
