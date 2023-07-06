@@ -1,0 +1,126 @@
+---
+title: "Multi-level model walk-through"
+author: "Wizards Points"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Load packages
+library(tidyverse) # the usual
+library(readr) # fancy data load 
+library(lme4) # multi-level models
+library(performance) # model assessment
+library(broom) # clean up
+library(broom.mixed) # clean-up for mlms
+library(sjPlot) # model plots
+library(arm) # scaling the data
+
+# set seed
+set.seed(5292023)
+
+# load data---
+df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip())) %>% 
+  mutate(bench = ifelse(starter == 0, 1, 0)) 
+
+```
+
+## Varying slopes? Varying intercepts?
+
+Our dataset has bench and starter performance by team. Let's look at the relationship between net rating and win percentage by these groups
+
+```{r, echo = FALSE, warning = FALSE, message= FALSE}
+df %>% 
+  filter(10>=gp) %>% # limit to players with 10 or more games
+  ggplot(aes(x = (net_rating), y = (team_w_pct), col = starter_char)) +
+  geom_point(shape = 21, stroke = 3, alpha = 0.3) +
+  geom_smooth(mapping = aes(group = starter_char), method = "lm", se = FALSE, fullrange = TRUE) +
+    scale_color_manual(values = c("#E41134", "#00265B")) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_classic() + 
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22)
+        ) +
+  labs(x = "Player Net Rating", y = "Team Win %"
+       , title = "Starting and Bench Player Net Rating and\nOverall Team Win Percentage, 2011-23"
+       , subtitle  = "Only players with 10 or more games included"
+       , caption = "Data: nba.com/stats\nwizardspoints.substack.com"
+  )
+
+
+```
+
+Ok, varying slopes...big time. What about bench performance only by team?
+
+```{r, echo = FALSE, warning = FALSE}
+df %>% 
+  filter(10>=gp & starter == 0) %>% # limit to players with 10 or more games
+  ggplot(aes(x = (net_rating), y = (team_w_pct), col = team_name)) +
+  geom_point(shape = 21, stroke = 3, alpha = 0.3) +
+  geom_smooth(mapping = aes(group = team_name), method = "lm", se = FALSE, fullrange = TRUE) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_classic() + 
+  theme(legend.position = "NA"
+        , legend.title = element_blank()
+        ) +
+  labs(x = "Player Net Rating", y = "Team Win %"
+       , title = "Bench Player Net Rating and\nOverall Team Win Percentage by Team, 2011-23"
+       , subtitle  = "Only players with 10 or more games included"
+       , caption = "Data: nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  viridis::scale_color_viridis(discrete = T) +
+  facet_wrap(~team_name)
+
+
+
+```
+
+The intercept and slope values are pretty for benches across different teams. The Nets and Suns have strongly positively correlated bench performance and net ratings, while the Clippers and Warriors have the opposite.
+
+If we simply include a "starter" predictor in our model, we're estimating different intercepts for starters and bench net ratings--and we know the starter intercept is higher. If we want to know how starter status affects the slope of win percentage, that's a different specification, one with interactions. The interaction model essentially asks whether or not there is there a difference in the effect of net rating on win percentage for starters and bench players? If we don't include the interaction we assume that the slope between net rating and win percentage is the same for both starters and bench players.
+
+We could estimate a two-stage regression to estimate the variation by starter status and then by team, or combine these into a multi-level model.
+
+
+| Level  | Equation |
+|:-------|:---------|
+|Level 1 | $winpercentage_{ij} = \beta_{0j} + \beta_{1j}netrating_{ij} + \beta_{2ij}minutes_{ij} + E_{ij}$|}
+|Level 2 | $\beta_{0j} = \gamma_{00} + \gamma_{10}starter_j + U_{0j}$|
+|        | $\beta_{1j} = \gamma_{10} + \gamma_{11}starter_j + U_{1j}$|
+|Combined| $winpercentage_{ij} = \gamma_{00} + \gamma_{01}netrating_{j} + \gamma_{10}minutes_{ij} + \gamma_{20}starter_{ij} + \gamma_{11}minutes_{ij}*starter_j + U_{0j} + U_{1j}starter_{j} + R_{ij}$|
+
+With this model, we will be estimating seven different model parameters --- 5 fixed effects, 2 random effects:
+
+1. $\gamma_{00}$: the fixed effect for the intercept, controlling for `net rating` , `minutes` and `starter`;
+2. $\gamma_{01}$: the fixed effect for the slope of `net rating`, controlling for `starter` and `minutes`;
+3. $\gamma_{10}$: the fixed effect for the slope of `minutes`, controlling for `starter` and `minutes`;
+4. $\gamma_{20}$: the fixed effect for the slope of `starter`, controlling for `net rating` and `minutes`;
+5. $\gamma_{11}$: the fixed effect for the cross-level interaction of`minutes` with `starter`, controlling for `net rating`;
+6. $\tau_{01}$: a random effect capturing how a team’s mean win percentage varies around the overall mean win percentage, controlling for `net rating`, `minutes` and `starter`;
+7. $\sigma^2$: a  random effect capturing the variance of players around their covariance with team win percentage, controlling for `net rating`, `minutes` and `starter`.
+
+
+A cross-level interaction is interpreted like an interaction in OLS: the effect of starting status on the effect of net rating on win percentage.
+
+```{r, warnings = F}
+
+# let's create a new data frame just for our variables of interest and rescale them
+
+df_mod <- df %>% 
+  dplyr::select(team_w_pct, min, net_rating, starter, season, team_name, player_name) %>% 
+  # rescale
+  mutate_at(.vars = c(1:3), .funs = arm::rescale) %>% 
+  arrange(season, player_name)
+
+mlm_1 <- lmer(team_w_pct ~  net_rating + min + starter + min:starter + (1|team_name), data = df_mod, REML = FALSE)
+
+broom.mixed::tidy(mlm_1, conf.int = TRUE)
+```
+We can see from the output above and the plot below that there is a decent amount of uncertainty around our interaction term of interest. 
+
+```{r}
+
+plot_model(mlm_1)
+
+```
