@@ -25,7 +25,8 @@ set.seed(5292023)
 
 # first let's load in just our NBA data
 df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip())) %>% 
-  mutate(bench = ifelse(starter == 0, 1, 0))
+  mutate(bench = ifelse(starter == 0, 1, 0)) %>% 
+  janitor::clean_names()
 
 # we'll see how model results compare when using 538's raptor metric
 df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types = cols(...1 = col_skip())) %>% 
@@ -39,27 +40,27 @@ df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types 
 
 df_wide <- df %>% 
   # drop our character variables
-  dplyr::select(TEAM_NAME, season, starter_char, NET_RATING, team_W_PCT, team_W) %>% 
+  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct, team_w) %>% 
   # collapse by team, season, and starter
-  group_by(TEAM_NAME, season, starter_char) %>% 
-  summarize(NET_RATING = mean(NET_RATING, na.rm=T)
-            , team_W_PCT = mean(team_W_PCT, na.rm=T)
-            , team_W = mean(team_W, na.rm=T)) %>%
-  pivot_wider(names_from = starter_char, values_from = NET_RATING) %>% 
+  group_by(team_name, season, starter_char) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+            , team_w = mean(team_w, na.rm=T)) %>%
+  pivot_wider(names_from = starter_char, values_from = net_rating) %>% 
   left_join(
     df %>% 
       # drop our character variables
-      dplyr::select(TEAM_NAME, season, starter, NET_RATING, MIN, team_W_PCT) %>% 
-      group_by(TEAM_NAME, season, starter) %>% 
-      summarize(total_bench_minutes = sum(MIN, na.rm=T)
+      dplyr::select(team_name, season, starter, net_rating, min, team_w_pct) %>% 
+      group_by(team_name, season, starter) %>% 
+      summarize(total_bench_minutes = sum(min, na.rm=T)
                 ) %>% 
       filter(starter == 0) %>% 
       dplyr::select(-starter)
   )
 
 df_wide %>% 
-  ggplot(aes(total_bench_minutes, team_W_PCT)) +
-  geom_point(aes(col = TEAM_NAME), shape =21) +
+  ggplot(aes(total_bench_minutes, team_w_pct)) +
+  geom_point(aes(col = team_name), shape =21) +
   geom_smooth(method = "lm", se = F) +
   ggpubr::stat_cor(fun = "pearson") +
   theme_classic() + 
@@ -67,12 +68,12 @@ df_wide %>%
         , legend.title = element_blank()
         , text = element_text(size = 22)
   ) +
-  labs(x = "Total Bench Minutes", y = "Team Win %"
-       , title = "Bench Minutes and\nOverall Team Win Percentage, 2011-23"
+  labs(x = "Total Bench minutes", y = "Team Win %"
+       , title = "Bench minutes and\nOverall Team Win Percentage, 2011-23"
        , caption = "data: nba.com/stats\nwizardspoints.substack.com"
-  ) + facet_wrap(~TEAM_NAME)
+  ) + facet_wrap(~team_name)
 
-m1 <- lm(team_W_PCT ~ 
+m1 <- lm(team_w_pct ~ 
            Bench 
          + Starter
          +  total_bench_minutes
@@ -83,6 +84,17 @@ summary(standardize(m1))
 performance(standardize(m1))
 check_model(standardize(m1))
 
+
+# model just for wiz----
+m1_wiz <- lm(team_w_pct ~ 
+           Bench 
+         + Starter
+         +  total_bench_minutes
+         , data = df_wide[df_wide$team_name=="Washington Wizards",])
+
+summary(m1_wiz)
+performance(m1_wiz)
+check_model(m1_wiz)
 # 538 model----
 
 df_wide_538 <- df_538 %>% 
@@ -115,8 +127,8 @@ df_wide_538 %>%
         , legend.title = element_blank()
         , text = element_text(size = 22)
   ) +
-  labs(x = "Total Bench Minutes", y = "Team Win %"
-       , title = "Bench Minutes and\nOverall Team Win Percentage, 2011-23"
+  labs(x = "Total Bench minutes", y = "Team Win %"
+       , title = "Bench minutes and\nOverall Team Win Percentage, 2011-23"
        , caption = "data: nba.com/stats\nwizardspoints.substack.com"
   ) + facet_wrap(~team_name)
 
@@ -145,7 +157,7 @@ check_model(standardize(m3))
 
 # visualize the predicted interaction effect
 p1 <- plot_model(m3, type = "int") + theme_538() +
-  labs(x = "Minutes Played"
+  labs(x = "minutes Played"
        , y = "Team Win %"
        , title = "Predicted Team Win Percentage by Player Status"
        , caption = "data: fivethirtyeight.com and nba.com/stats\nwizardspoints.substack.com"
@@ -174,7 +186,7 @@ check_model(m3)
 
 # visualize the predicted interaction effect
 p1_wiz <- plot_model(m3_wiz, type = "int") + theme_538() +
-  labs(x = "Minutes Played"
+  labs(x = "minutes Played"
        , y = "Team Win %"
        , title = "Predicted Team Win Percentage by Player Status for the Washington Wizards"
        , caption = "data: fivethirtyeight.com and nba.com/stats\nwizardspoints.substack.com"
@@ -206,7 +218,7 @@ m_group %>%
 
 # regression tree----
 m2 <- rpart(
-  formula = team_W_PCT ~ 
+  formula = team_w_pct ~ 
     Bench 
   + Starter
   +  total_bench_minutes,
