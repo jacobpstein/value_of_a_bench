@@ -128,12 +128,9 @@ Let's look at the specific team intercepts just for the bench. This will essenti
 
 We can see that for roughly half the league, their benches aren't doing much for them after we account for variation in net rating by team. 
 
-```{r, echo = FALSE}
+```{r, warning = FALSE, message = F}
 
-# run the same model, but make the intercept just the mean for bench minutes
-mlm_bench <- lmer(team_w_pct ~  net_rating + min  + min + (1|team_name), data = df_mod[df_mod$starter==0,], REML = FALSE)
-
-ranef_results <- broom.mixed::tidy(mlm_bench, effects = "ran_vals", conf.int = TRUE)
+ranef_results <- broom.mixed::tidy(mlm_1, effects = "ran_vals", conf.int = TRUE)
 
 ranef_results %>% 
   arrange(desc(estimate)) %>% 
@@ -145,3 +142,118 @@ ranef_results %>%
   theme(legend.position = "NA") +
   labs(x = "Mean effect of bench minutes", y = "", title = "What is the average effect of bench minutes\nby team on win percentage?", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
 ```
+
+# Bring in the original DAG
+
+In our original design, the data are collapsed by starter-bench levels across teams. This still works within a multi-level framework, but likely increases some of the variance of our measures. We should get roughly the same results, but maybe with a little more noise since we are not working at a player-unit level but at a player-status unit level. 
+
+```{r, echo = FALSE, warning=FALSE}
+
+
+df_collapsed <- df %>% 
+  # drop our character variables
+  dplyr::select(team_name, season, bench, net_rating, team_w_pct, min) %>%
+  # collapse by team, season, and starter
+  group_by(team_name, season, bench) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+            , min = sum(min, na.rm=T)
+            ) %>% 
+  ungroup() %>% 
+  mutate_at(.vars = c("net_rating", "min", "team_w_pct"), .funs = arm::rescale) 
+
+
+mlm_2 <- lmer(team_w_pct~ net_rating + min + bench*min + (1|team_name), data = df_collapsed, REML = FALSE)
+
+
+
+```
+Our model specification is the same for this model, the data are what have changed.
+
+```{r, warning = FALSE}
+broom.mixed::tidy(mlm_2, conf.int = TRUE)
+
+```
+
+```{r, warning = FALSE, message = FALSE, echo = FALSE}
+ranef_results2 <- broom.mixed::tidy(mlm_2, effects = "ran_vals", conf.int = TRUE)
+
+ranef_results2 %>% 
+  arrange(desc(estimate)) %>% 
+  ggplot(aes(x = estimate, y = reorder(level, estimate), xmin = conf.low, xmax = conf.high)) + 
+  geom_vline(xintercept = 0, linetype = 6) +
+  geom_pointrange(aes(col = estimate)) +
+  viridis::scale_color_viridis(option = "E") +
+  theme_classic() +
+  theme(legend.position = "NA") +
+  labs(x = "Mean effect of bench minutes relative to starter minutes", y = "", title = "How do bench minutes compare to starter minutes by team?", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
+
+```
+
+
+## Getting back to our initial DAG model
+
+We want to run a slightly different model on wider data where instead of an interaction term, we use the actual value for bench minutes, controlling for starter and bench net ratings, with random effects by team. 
+
+$$
+\begin{aligned}
+  \operatorname{team\_w\_pct}_{i}  &\sim N \left(\mu, \sigma^2 \right) \\
+    \mu &=\alpha_{j[i]} + \beta_{1}(\operatorname{Bench}) + \beta_{2}(\operatorname{Starter}) + \beta_{3}(\operatorname{total\_bench\_minutes}) \\
+    \alpha_{j}  &\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
+    \text{, for team_name j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+```{r, warning = F}
+
+
+df_wide <- df %>% 
+  # drop our character variables
+  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct) %>% 
+  # collapse by team, season, and starter
+  group_by(team_name, season, starter_char) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+            ) %>%
+  ungroup() %>% 
+  mutate_at(.vars = c("net_rating",  "team_w_pct"), .funs = arm::rescale) %>% 
+  pivot_wider(names_from = starter_char, values_from = net_rating) %>% 
+  left_join(
+    df %>% 
+      # drop our character variables
+      dplyr::select(team_name, season, starter, net_rating, min, team_w_pct) %>% 
+      group_by(team_name, season, starter) %>% 
+      summarize(total_bench_minutes = sum(min, na.rm=T)
+                ) %>% 
+      filter(starter == 0) %>% 
+      dplyr::select(-starter) %>% 
+      ungroup() %>% 
+      mutate(total_bench_minutes = arm::rescale(total_bench_minutes))
+  )
+
+
+mlm_3 <- lmer(team_w_pct~ Bench + Starter + total_bench_minutes + (1|team_name), data = df_wide, REML = FALSE)
+
+
+broom.mixed::tidy(mlm_3, conf.int = TRUE)
+
+```
+
+Ok, it looks like our overall mean effect, not split out by team is lower. Let's look at the intercepts, i.e., the overall team level effects. It's important to note that we have left the realm of separability; we're not comparing bench minutes to starter minutes, but estimating the effect of bench minutes after accounting for bench and starter performance, as well as team-level variation. 
+
+```{r}
+ranef_results3 <- broom.mixed::tidy(mlm_3, effects = "ran_vals", conf.int = TRUE)
+
+ranef_results3 %>% 
+  arrange(desc(estimate)) %>% 
+  ggplot(aes(x = estimate, y = reorder(level, estimate), xmin = conf.low, xmax = conf.high)) + 
+  geom_vline(xintercept = 0, linetype = 6) +
+  geom_pointrange(aes(col = estimate)) +
+  viridis::scale_color_viridis(option = "E") +
+  theme_classic() +
+  theme(legend.position = "NA") +
+  labs(x = "Mean effect of bench minutes", y = "", title = "What is the effect of bench minutes by team?", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
+
+```
+
+So, we see that for most teams, there is a lot of uncertainty around the mean values (could be positive, could be negative), but with generally the same ranking as the other models, which is kind of reassuring. Notably, there are a couple of teams for whom bench minutes are actively hurting them, on average, but the Wizards aren't in this group. 
