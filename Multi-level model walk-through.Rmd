@@ -195,17 +195,8 @@ ranef_results2 %>%
 
 We want to run a slightly different model on wider data where instead of an interaction term, we use the actual value for bench minutes, controlling for starter and bench net ratings, with random effects by team. 
 
-$$
-\begin{aligned}
-  \operatorname{team\_w\_pct}_{i}  &\sim N \left(\mu, \sigma^2 \right) \\
-    \mu &=\alpha_{j[i]} + \beta_{1}(\operatorname{Bench}) + \beta_{2}(\operatorname{Starter}) + \beta_{3}(\operatorname{total\_bench\_minutes}) \\
-    \alpha_{j}  &\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
-    \text{, for team_name j = 1,} \dots \text{,J}
-\end{aligned}
-$$
-
-```{r, warning = F}
-
+For context, let's just look at the relationship between bench minutes and win percentage.
+```{r}
 
 df_wide <- df %>% 
   # drop our character variables
@@ -230,6 +221,54 @@ df_wide <- df %>%
       ungroup() %>% 
       mutate(total_bench_minutes = arm::rescale(total_bench_minutes))
   )
+
+df %>% 
+  # drop our character variables
+  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct) %>% 
+  # collapse by team, season, and starter
+  group_by(team_name, season, starter_char) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+            ) %>%
+  ungroup() %>% 
+  pivot_wider(names_from = starter_char, values_from = net_rating) %>% 
+  left_join(
+    df %>% 
+      # drop our character variables
+      dplyr::select(team_name, season, starter, net_rating, min, team_w_pct) %>% 
+      group_by(team_name, season, starter) %>% 
+      summarize(total_bench_minutes = sum(min, na.rm=T)
+                ) %>% 
+      filter(starter == 0) %>% 
+      dplyr::select(-starter) ) %>% 
+      ungroup() %>% 
+ggplot(aes(x = total_bench_minutes, y = team_w_pct, col = team_name)) +
+  geom_point(shape = 21, stroke = 3, alpha = 0.3) +
+  geom_smooth(mapping = aes(group = team_name), method = "lm", se = FALSE, fullrange = TRUE) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_classic() + 
+  theme(legend.position = "NA"
+        , legend.title = element_blank()
+        ) +
+  labs(x = "Total Bench Minutes", y = "Team Win %"
+       , title = "Total Bench Minutes and\nOverall Team Win Percentage by Team, 2011-23"
+       , caption = "Data: nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  viridis::scale_color_viridis(discrete = T) +
+  facet_wrap(~team_name)
+```
+
+In a model context, this takes the following form: 
+$$
+\begin{aligned}
+  \operatorname{team\_w\_pct}_{i}  &\sim N \left(\mu, \sigma^2 \right) \\
+    \mu &=\alpha_{j[i]} + \beta_{1}(\operatorname{Bench}) + \beta_{2}(\operatorname{Starter}) + \beta_{3}(\operatorname{total\_bench\_minutes}) \\
+    \alpha_{j}  &\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
+    \text{, for team_name j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+```{r, warning = F}
 
 
 mlm_3 <- lmer(team_w_pct~ Bench + Starter + total_bench_minutes + (1|team_name), data = df_wide, REML = FALSE)
