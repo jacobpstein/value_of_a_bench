@@ -40,12 +40,14 @@ df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types 
 
 df_wide <- df %>% 
   # drop our character variables
-  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct, team_w) %>% 
+  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct) %>% 
   # collapse by team, season, and starter
   group_by(team_name, season, starter_char) %>% 
   summarize(net_rating = mean(net_rating, na.rm=T)
             , team_w_pct = mean(team_w_pct, na.rm=T)
-            , team_w = mean(team_w, na.rm=T)) %>%
+  ) %>%
+  ungroup() %>% 
+  mutate_at(.vars = c("net_rating",  "team_w_pct"), .funs = arm::rescale) %>% 
   pivot_wider(names_from = starter_char, values_from = net_rating) %>% 
   left_join(
     df %>% 
@@ -53,9 +55,11 @@ df_wide <- df %>%
       dplyr::select(team_name, season, starter, net_rating, min, team_w_pct) %>% 
       group_by(team_name, season, starter) %>% 
       summarize(total_bench_minutes = sum(min, na.rm=T)
-                ) %>% 
+      ) %>% 
       filter(starter == 0) %>% 
-      dplyr::select(-starter)
+      dplyr::select(-starter) %>% 
+      ungroup() %>% 
+      mutate(total_bench_minutes = arm::rescale(total_bench_minutes))
   )
 
 df_wide %>% 
@@ -79,10 +83,9 @@ m1 <- lm(team_w_pct ~
          +  total_bench_minutes
          , data = df_wide)
 
-standardize(m1) # scaled results
-summary(standardize(m1))
-performance(standardize(m1))
-check_model(standardize(m1))
+summary((m1))
+performance((m1))
+check_model((m1))
 
 
 # model just for wiz----

@@ -257,3 +257,41 @@ ranef_results3 %>%
 ```
 
 So, we see that for most teams, there is a lot of uncertainty around the mean values (could be positive, could be negative), but with generally the same ranking as the other models, which is kind of reassuring. Notably, there are a couple of teams for whom bench minutes are actively hurting them, on average, but the Wizards aren't in this group. 
+
+For comparison's sake, we can see how the multi-level structure compares to a linear model, with the following familiar specification:
+$$
+\operatorname{team\_w\_pct} = \alpha + \beta_{1}(\operatorname{Bench}) + \beta_{2}(\operatorname{Starter}) + \beta_{3}(\operatorname{total\_bench\_minutes}) + \epsilon
+$$
+
+```{r}
+
+m1 <- lm(team_w_pct ~ 
+           Bench 
+         + Starter
+         +  total_bench_minutes
+         , data = df_wide)
+
+broom::tidy(m1, conf.int = TRUE)
+
+```
+
+We can see the multi-level structure at work in the difference overall mean values for bench minutes: lower error, lower magnitude of effect. If we want to re-create the above plot, we can see this difference by team.
+
+```{r, warning = FALSE}
+
+df_wide2 <- df_wide %>% bind_cols(predict(m1, interval = "confidence"))
+
+df_wide2 %>% 
+  group_by(team_name) %>% 
+  summarize(fit = mean(fit, na.rm=T)
+            , lwr = mean(lwr, na.rm=T)
+            , upr = mean(upr, na.rm=T)) %>% 
+ggplot(aes(x = fit, y = reorder(team_name, fit), xmin = lwr, xmax = upr)) + 
+  geom_vline(xintercept = 0, linetype = 6) +
+  geom_pointrange(aes(col = fit)) +
+  viridis::scale_color_viridis(option = "E") +
+  theme_classic() +
+  theme(legend.position = "NA") +
+  labs(x = "Mean effect of bench minutes", y = "", title = "What is the effect of bench minutes by team?", subtitle = "Linear Regression Results", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
+
+```
