@@ -297,6 +297,12 @@ ranef_results3 %>%
 
 So, we see that for most teams, there is a lot of uncertainty around the mean values (could be positive, could be negative), but with generally the same ranking as the other models, which is kind of reassuring. Notably, there are a couple of teams for whom bench minutes are actively hurting them, on average, but the Wizards aren't in this group. 
 
+### Let's bring in some priors
+
+We know
+
+## A linear model
+
 For comparison's sake, we can see how the multi-level structure compares to a linear model, with the following familiar specification:
 $$
 \operatorname{team\_w\_pct} = \alpha + \beta_{1}(\operatorname{Bench}) + \beta_{2}(\operatorname{Starter}) + \beta_{3}(\operatorname{total\_bench\_minutes}) + \epsilon
@@ -334,3 +340,4 @@ ggplot(aes(x = fit, y = reorder(team_name, fit), xmin = lwr, xmax = upr)) +
   labs(x = "Mean effect of bench minutes", y = "", title = "What is the effect of bench minutes by team?", subtitle = "Linear Regression Results", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
 
 ```
+

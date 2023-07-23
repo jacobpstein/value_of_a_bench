@@ -87,7 +87,7 @@ starter_df <- do.call(rbind, named_df_list) %>%
   mutate(across(-c(2, 3, 5, 79), as.numeric)
          , starter = 1
          , starter_char = "Starter") %>% 
-  select(-contains("RANK"))
+  dplyr::select(-contains("RANK"))
 
 # run again but for totals and traditional box stats---
 
@@ -129,7 +129,7 @@ starter_df_trad <- do.call(rbind, named_df_list) %>%
   mutate(across(-c(2, 3, 5, 67), as.numeric)
          , starter = 1
          , starter_char = "Starter") %>% 
-  select(-contains("RANK"))
+  dplyr::select(-contains("RANK"))
 
 starter_df <- starter_df %>% select(-MIN) %>% 
               left_join(starter_df_trad %>% select(PLAYER_ID, PLAYER_NAME, TEAM_ID, MIN, season))
@@ -174,7 +174,7 @@ bench_df <- do.call(rbind, named_df_list) %>%
   mutate(across(-c(2, 3, 5, 79), as.numeric)
          , starter = 0
          , starter_char = "Bench") %>% 
-  select(-contains("RANK"))
+  dplyr::select(-contains("RANK"))
 
 # now let's get total bench minutes---
 
@@ -215,7 +215,7 @@ bench_df_trad <- do.call(rbind, named_df_list) %>%
   mutate(across(-c(2, 3, 5, 67), as.numeric)
          , starter = 0
          , starter_char = "Bench") %>% 
-  select(-contains("RANK"))
+  dplyr::select(-contains("RANK"))
 
 
 bench_df <- bench_df %>% select(-MIN) %>% 
@@ -263,7 +263,7 @@ named_df_list <- Map(function(df, name) {transform(df, season = name)}, df, name
 overall_df <- do.call(rbind, named_df_list) %>% 
   mutate(across(-c(2, 3, 5, 79), as.numeric)
          ) %>% 
-  select(-contains("RANK"))
+  dplyr::select(-contains("RANK"))
 
 # to pull team stats from NBA run the code below:
 
@@ -303,7 +303,7 @@ named_df_team_list <- Map(function(df_team, name) {transform(df_team, season = n
 # this is more or less what I imagine we'll work with for analysis
 team_df <- do.call(rbind, named_df_team_list) %>% 
   mutate(across(-c(2, 55), as.numeric)) %>% 
-  select(-contains("RANK")) %>% 
+  dplyr::select(-contains("RANK")) %>% 
   rename_with( ~ paste("team", .x, sep = "_")) %>% 
   rename(TEAM_ID = team_TEAM_ID
          , TEAM_NAME = team_TEAM_NAME
@@ -318,9 +318,6 @@ player_team_df <- player_df %>%
                             , ifelse(TEAM_NAME == "Charlotte Bobcats", "Charlotte Hornets"
                                      , ifelse(TEAM_NAME == "New Jersey Nets", "Brooklyn Nets", TEAM_NAME))))
 
-# read in 538 RAPTOR data--------
-df_538 <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/nba-raptor/modern_RAPTOR_by_player.csv")
-
 player_team_df2 <- player_team_df %>% 
                           mutate(season_num = as.numeric(substr(season, 1, 4))) %>% 
                           filter(season_num>=2014) %>% 
@@ -328,13 +325,18 @@ player_team_df2 <- player_team_df %>%
                           mutate(TEAM_NAME = ifelse(TEAM_NAME == "Los Angeles Clippers", "LA Clippers"
                                                     , ifelse(TEAM_NAME == "New Orleans Hornets", "New Orleans Pelicans"
                                                     , ifelse(TEAM_NAME == "Charlotte Bobcats", "Charlotte Hornets"
-                                                             , ifelse(TEAM_NAME == "New Jersey Nets", "Brooklyn Nets", TEAM_NAME)))))
+                                                             , ifelse(TEAM_NAME == "New Jersey Nets", "Brooklyn Nets", TEAM_NAME)))))  %>% 
+  janitor::clean_names() 
+  
 
-write.csv(player_team_df, "03 Data/advanced player stats and team stats.csv")
+write.csv(player_team_df2, "03 Data/advanced player stats and team stats.csv")
 
+
+# read in 538 RAPTOR data--------
+df_538 <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/nba-raptor/modern_RAPTOR_by_player.csv")
 
 # collapse to only have either starters OR bench players but not both-----
-df_starter <- player_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, GP, season, starter_char, TEAM_ID) %>% 
+df_starter <- player_df %>% dplyr::select(PLAYER_NAME, TEAM_ABBREVIATION, GP, season, starter_char, TEAM_ID) %>% 
   pivot_wider(names_from = starter_char, values_from = GP) %>% 
   mutate(starter = case_when(Starter>Bench ~ 1
                              , is.na(Bench)==T & is.na(Starter)!=T ~ 1
@@ -346,12 +348,12 @@ df_starter <- player_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, GP, season, s
          ) %>% 
   rename(season_char = season
          , season = season_num) %>% 
-  select(-Starter, -Bench) %>% 
+  dplyr::select(-Starter, -Bench) %>% 
   janitor::clean_names()
 
 
 # add in net rating
-net_rating_df <- player_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, NET_RATING, season, starter_char, TEAM_ID) %>% 
+net_rating_df <- player_df %>% dplyr::select(PLAYER_NAME, TEAM_ABBREVIATION, NET_RATING, season, starter_char, TEAM_ID) %>% 
   pivot_wider(names_from = starter_char, values_from = NET_RATING) %>% 
   janitor::clean_names() %>% 
   mutate(season_num = as.numeric(paste0("20", substr(season, 6, 7)))) %>% 
@@ -363,7 +365,7 @@ net_rating_df <- player_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, NET_RATING
 
 # add in specific bench and starting minutes
 
-min_df <- player_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, MIN, season, starter_char, TEAM_ID) %>% 
+min_df <- player_df %>% dplyr::select(PLAYER_NAME, TEAM_ABBREVIATION, MIN, season, starter_char, TEAM_ID) %>% 
   pivot_wider(names_from = starter_char, values_from = MIN) %>% 
   janitor::clean_names() %>% 
   mutate(season_num = as.numeric(paste0("20", substr(season, 6, 7)))) %>% 
@@ -372,7 +374,7 @@ min_df <- player_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, MIN, season, star
          , starter_min = starter
          , bench_min = bench) 
 
-overall_net <- overall_df %>% select(PLAYER_NAME, TEAM_ABBREVIATION, NET_RATING, season, TEAM_ID, TS_PCT) %>% 
+overall_net <- overall_df %>% dplyr::select(PLAYER_NAME, TEAM_ABBREVIATION, NET_RATING, season, TEAM_ID, TS_PCT) %>% 
   janitor::clean_names() %>% 
   mutate(season_num = as.numeric(paste0("20", substr(season, 6, 7)))) %>% 
   rename(season_char = season
@@ -414,7 +416,7 @@ df_538_starter <- df_538 %>%
                                        
 df_538_starter_team <- df_538_starter %>% left_join(team_df %>% 
                                janitor::clean_names() %>% 
-                               select(team_id, team_name, team_w, team_l, team_w_pct, "season_char" = season) %>% 
+                               dplyr::select(team_id, team_name, team_w, team_l, team_w_pct, "season_char" = season) %>% 
                                mutate(season = as.numeric(paste0("20", substr(season_char, 6, 7))))
                              ) %>% 
   mutate(starter_char = ifelse(starter == 1, "Starter", "Bench")
