@@ -15,6 +15,7 @@ library(broom) # clean up
 library(broom.mixed) # clean-up for mlms
 library(sjPlot) # model plots
 library(arm) # scaling the data
+library(rstanarm) # bayesian model
 
 # set seed
 set.seed(5292023)
@@ -102,7 +103,7 @@ With this model, we will be estimating seven different model parameters --- 5 fi
 
 A cross-level interaction is interpreted like an interaction in OLS: the effect of starting status on the effect of net rating on win percentage.
 
-```{r, warnings = F, echo = FALSE}
+```{r, warnings = F, message = F}
 
 # let's create a new data frame just for our variables of interest and rescale them
 
@@ -112,7 +113,7 @@ df_mod <- df %>%
   mutate_at(.vars = c(1:3), .funs = arm::rescale) %>% 
   arrange(season, player_name)
 
-mlm_1 <- lmer(team_w_pct ~  net_rating + min + starter + min:starter + (1|team_name), data = df_mod, REML = FALSE)
+mlm_1 <- lmer(team_w_pct ~  net_rating + min + starter + min:starter + (1|team_name), data = df_mod)
 
 broom.mixed::tidy(mlm_1, conf.int = TRUE)
 ```
@@ -147,7 +148,7 @@ ranef_results %>%
 
 In our original design, the data are collapsed by starter-bench levels across teams. This still works within a multi-level framework, but likely increases some of the variance of our measures. We should get roughly the same results, but maybe with a little more noise since we are not working at a player-unit level but at a player-status unit level. 
 
-```{r, echo = FALSE, warning=FALSE}
+```{r, message = F, warning=FALSE}
 
 
 df_collapsed <- df %>% 
@@ -163,7 +164,7 @@ df_collapsed <- df %>%
   mutate_at(.vars = c("net_rating", "min", "team_w_pct"), .funs = arm::rescale) 
 
 
-mlm_2 <- lmer(team_w_pct~ net_rating + min + bench*min + (1|team_name), data = df_collapsed, REML = FALSE)
+mlm_2 <- lmer(team_w_pct~ net_rating + min + bench*min + (1|team_name), data = df_collapsed)
 
 
 
@@ -271,7 +272,7 @@ $$
 ```{r, warning = F}
 
 
-mlm_3 <- lmer(team_w_pct~ Bench + Starter + total_bench_minutes + (1|team_name), data = df_wide, REML = FALSE)
+mlm_3 <- lmer(team_w_pct~ Bench + Starter + total_bench_minutes + (1|team_name), data = df_wide)
 
 
 broom.mixed::tidy(mlm_3, conf.int = TRUE)
@@ -299,7 +300,50 @@ So, we see that for most teams, there is a lot of uncertainty around the mean va
 
 ### Let's bring in some priors
 
-We know
+We know a thing or two about our parameters from watching basketball. Specifically, that starters are good and bench players are typically not as good and bench minutes are not the minutes fans generally go to see (present company excluded).
+
+While Stan defaults to useful, but weakly informative priors, to constrain the uncertainty around the estimates, we can use informative priors based on these assumptions to better estimate the distribution for each parameter. For example, we might think that the bench performance parameter generally has the characteristics $\beta_{1}(\operatorname{Bench}) \in (-5, 3)$, while starter performance is closer to something like $\beta_{2}(\operatorname{Starter}) \in (-1, 6)$, and $\beta_{3}(\operatorname{total bench minutes}) \in (-0.35, -0.01)$ The prior on bench minutes reflects the re-scaled values (i.e., centered and divided by 2 sd's), so we're just saying that we thinking bench minutes are mostly negatively correlated with win percentage here. 
+
+We can also set a prior on our outcome of win percentage with the following characteristics:
+                            $\sim N \left(0.5, 0.1 \right)$
+                            
+If we had thoughts on the distribution of the error of our model, we could also fit a prior to that, but I don't really have any thoughts on this, so we'll just keep the default.
+
+```{r, warning = FALSE, message = FALSE, results="hide"}
+prior_mlm <- normal(location = c(-1, 2.5, -0.18), scale = c(4, 3.5, .17), autoscale = FALSE)
+
+
+prior_intercept_mlm <- normal(location = 0.5, scale = .1, autoscale = F)
+
+
+mlm_4 <- stan_lmer(team_w_pct~ Bench + Starter + total_bench_minutes + (1|team_name)
+                   , data = df_wide, prior = prior_mlm
+                   , prior_intercept = prior_intercept_mlm # on second thought lets drop the intercept prior
+                   )
+
+
+broom.mixed::tidy(mlm_4, conf.int = TRUE)
+
+```
+
+We can see that the median estimate on bench minutes is a bit more constrained (or in normal language, "lower") than in our previous model. The figure below also uses 90% credible intervals per McElreath. 
+
+```{r, warning = FALSE, message = FALSE}
+ranef_results4 <- broom.mixed::tidyMCMC(mlm_4, effects = "ran_vals", conf.int = TRUE, conf.level=.9)
+
+ranef_results4 %>% 
+    filter(grepl("team_name:", term)==T & grepl("Sigma", term)!=T) %>% 
+    mutate(term = gsub("[_]", " ", substr(term, 25, nchar(term)-1))) %>% 
+  arrange(desc(estimate)) %>% 
+  ggplot(aes(x = estimate, y = reorder(term, estimate), xmin = conf.low, xmax = conf.high)) + 
+  geom_vline(xintercept = 0, linetype = 6) +
+  geom_pointrange(aes(col = estimate)) +
+  viridis::scale_color_viridis(option = "E") +
+  theme_classic() +
+  theme(legend.position = "NA") +
+  labs(x = "Mean effect of bench minutes", y = "", title = "What is the effect of bench minutes by team?", subtitle = "Estimates using prior information", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
+
+```
 
 ## A linear model
 
