@@ -108,12 +108,12 @@ A cross-level interaction is interpreted like an interaction in OLS: the effect 
 # let's create a new data frame just for our variables of interest and rescale them
 
 df_mod <- df %>% 
-  dplyr::select(team_w_pct, min, net_rating, starter, season, team_name, player_name, bench) %>% 
+  dplyr::select(team_w_pct, min, net_rating, starter_char, season, team_name, player_name, bench) %>% 
   # rescale
   mutate_at(.vars = c(1:3), .funs = arm::rescale) %>% 
   arrange(season, player_name)
 
-mlm_1 <- lmer(team_w_pct ~  net_rating + min + starter + min:starter + (1|team_name), data = df_mod)
+mlm_1 <- lmer(team_w_pct ~  net_rating + min + bench + min:starter_char + (1|team_name), data = df_mod)
 
 broom.mixed::tidy(mlm_1, conf.int = TRUE)
 ```
@@ -124,7 +124,19 @@ We can see from the output above and the plot below that there is a decent amoun
 plot_model(mlm_1)
 
 ```
-
+```{r}
+plot_model(mlm_1, type = "int") + theme_classic() +
+  labs(x = "minutes Played"
+       , y = "Team Win %"
+       , title = "Predicted Team Win Percentage by Player Status"
+       , caption = "data: nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22))
+```
 Let's look at the specific team intercepts just for the bench. This will essentially give us a ranking of the interaction. 
 
 We can see that for roughly half the league, their benches aren't doing much for them after we account for variation in net rating by team. 
@@ -153,9 +165,9 @@ In our original design, the data are collapsed by starter-bench levels across te
 
 df_collapsed <- df %>% 
   # drop our character variables
-  dplyr::select(team_name, season, bench, net_rating, team_w_pct, min) %>%
+  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct, min) %>%
   # collapse by team, season, and starter
-  group_by(team_name, season, bench) %>% 
+  group_by(team_name, season, starter_char) %>% 
   summarize(net_rating = mean(net_rating, na.rm=T)
             , team_w_pct = mean(team_w_pct, na.rm=T)
             , min = sum(min, na.rm=T)
@@ -164,7 +176,7 @@ df_collapsed <- df %>%
   mutate_at(.vars = c("net_rating", "min", "team_w_pct"), .funs = arm::rescale) 
 
 
-mlm_2 <- lmer(team_w_pct~ net_rating + min + bench*min + (1|team_name), data = df_collapsed)
+mlm_2 <- lmer(team_w_pct~ net_rating + min + starter_char*min + (1|team_name), data = df_collapsed)
 
 
 
@@ -191,7 +203,21 @@ ranef_results2 %>%
 
 ```
 
+Let's look at the interaction effect. 
 
+```{r}
+plot_model(mlm_2, type = "int") + theme_classic() +
+  labs(x = "minutes Played"
+       , y = "Team Win %"
+       , title = "Predicted Team Win Percentage by Unit Status"
+       , caption = "data: nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22))
+```
 ## Getting back to our initial DAG model
 
 We want to run a slightly different model on wider data where instead of an interaction term, we use the actual value for bench minutes, controlling for starter and bench net ratings, with random effects by team. 

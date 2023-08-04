@@ -62,7 +62,26 @@ df_wide <- df %>%
       mutate(total_bench_minutes = arm::rescale(total_bench_minutes))
   )
 
-df_wide %>% 
+p1 <- df %>% 
+  # drop our character variables
+  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct) %>% 
+  # collapse by team, season, and starter
+  group_by(team_name, season, starter_char) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+  ) %>%
+  ungroup() %>% 
+  pivot_wider(names_from = starter_char, values_from = net_rating) %>% 
+  left_join(
+    df %>% 
+      # drop our character variables
+      dplyr::select(team_name, season, starter, net_rating, min, team_w_pct) %>% 
+      group_by(team_name, season, starter) %>% 
+      summarize(total_bench_minutes = sum(min, na.rm=T)
+      ) %>% 
+      filter(starter == 0) %>% 
+      dplyr::select(-starter) %>% 
+      ungroup() ) %>% 
   ggplot(aes(total_bench_minutes, team_w_pct)) +
   geom_point(aes(col = team_name), shape =21) +
   geom_smooth(method = "lm", se = F) +
@@ -76,6 +95,11 @@ df_wide %>%
        , title = "Bench minutes and\nOverall Team Win Percentage, 2011-23"
        , caption = "data: nba.com/stats\nwizardspoints.substack.com"
   ) + facet_wrap(~team_name)
+
+p1
+
+ggsave("02 Output/bench minute and win percentage by team.png", p1, w = 24, h = 12, dpi = 300)
+
 
 m1 <- lm(team_w_pct ~ 
            Bench 
@@ -208,15 +232,16 @@ ggsave("02 Output/interaction model results for the Wizards.png", p1_wiz, w = 16
 m_group <- df %>% 
   janitor::clean_names() %>% 
   ungroup() %>% 
+  mutate_at(.vars = c("net_rating",  "team_w_pct", "min"), .funs = arm::rescale) %>% 
   nest_by(team_name) %>%
   mutate(fit_win_pct = list(lm(team_w_pct ~ 
                                  net_rating
-                               + min*starter, data = data))) %>%
+                               + min*bench, data = data))) %>%
   summarise(tidy(fit_win_pct))
 
 m_group %>% 
-  filter(term == "min:starter") %>% 
-  arrange(desc(estimate))
+  filter(term == "min:bench") %>% 
+  arrange((p.value))
   
 
 # regression tree----
