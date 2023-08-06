@@ -412,4 +412,57 @@ ggplot(aes(x = fit, y = reorder(team_name, fit), xmin = lwr, xmax = upr)) +
   labs(x = "Mean effect of bench minutes", y = "", title = "What is the effect of bench minutes by team?", subtitle = "Linear Regression Results", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
 
 ```
+## A final model
+$$
+\begin{aligned}
+  \widehat{Team Win Percentage}_{i}  &\sim N \left(\mu, \sigma^2 \right) \\
+    \mu &=\alpha_{j[i]} + \beta_{1}(\operatorname{net\_rating}) + \beta_{2}(\operatorname{bench}) + \beta_{3}(\operatorname{min}) + \beta_{4}(\operatorname{bench} \times \operatorname{min}) \\
+    \alpha_{j}  &\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
+    \text{, for Team j = 1,} \dots \text{,J}
+\end{aligned}
+$$
 
+```{r}
+
+df_wide_pt <- df %>% 
+  mutate(bench_char = ifelse(bench == 1, "Bench", "Starter")) %>% 
+  # drop our character variables
+  dplyr::select(team_name, season, bench_char, bench, net_rating, team_w_pct, min) %>% 
+  # collapse by team, season, and starter
+  group_by(team_name, season, bench_char, bench) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+            , min = sum(min, na.rm=T)
+  ) %>%
+  ungroup() %>% 
+  mutate_at(.vars = c("net_rating",  "team_w_pct", "min"), .funs = arm::rescale)
+
+m_group2 <- df_wide_pt %>% 
+  ungroup() %>% 
+  nest_by(team_name) %>%
+  mutate(fit_win_pct = list(stan_glm(team_w_pct ~ 
+                                       net_rating
+                                     + bench*min
+                                     , data = data))) %>%
+  reframe(tidy(fit_win_pct, conf.int = T))
+
+results_df <- m_group2 %>% 
+  filter(term == "bench:min") %>% 
+  arrange(desc(estimate)) 
+
+p1 <- results_df %>% 
+ggplot(aes(x = estimate, y = reorder(team_name, estimate), xmin = conf.low, xmax = conf.high)) + 
+  geom_vline(xintercept = 0, linetype = 6) +
+  geom_pointrange(aes(col = estimate)) +
+  viridis::scale_color_viridis(option = "viridis") +
+  theme_classic() +
+  theme(legend.position = "NA"
+        , text = element_text(size = 26)) +
+  labs(x = "Effect of bench on win percentage", y = "", title = "What is the effect of bench minutes by team?"
+       , caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
+p1
+
+ggsave("02 Output/interaction model results for all teams.png", p1, w = 16, h = 12, dpi = 300)
+
+
+```
