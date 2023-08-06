@@ -24,9 +24,10 @@ set.seed(5292023)
 # load data---
 
 # first let's load in just our NBA data
-df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip())) %>% 
+df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip())) %>% 
   mutate(bench = ifelse(starter == 0, 1, 0)) %>% 
-  janitor::clean_names()
+  janitor::clean_names() %>% 
+  filter(gp>=10)
 
 # we'll see how model results compare when using 538's raptor metric
 df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types = cols(...1 = col_skip())) %>% 
@@ -39,8 +40,6 @@ df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types 
 # simplify things a big
 
 df_wide <- df %>% 
-  # limit to players with 10 or more games
-  filter(gp>=10) %>% 
   # drop our character variables
   dplyr::select(team_name, season, starter_char, net_rating, team_w_pct) %>% 
   # collapse by team, season, and starter
@@ -87,7 +86,7 @@ p1 <- df %>%
   ggplot(aes(total_bench_minutes, team_w_pct)) +
   geom_point(aes(col = team_name), shape =21) +
   geom_smooth(method = "lm", se = F) +
-  ggpubr::stat_cor(fun = "pearson") +
+  ggpubr::stat_cor() +
   theme_classic() + 
   theme(legend.position = "NA"
         , legend.title = element_blank()
@@ -232,18 +231,17 @@ ggsave("02 Output/interaction model results for the Wizards.png", p1_wiz, w = 16
 
 # model by team----
 m_group <- df %>% 
-  janitor::clean_names() %>% 
   ungroup() %>% 
   mutate_at(.vars = c("net_rating",  "team_w_pct", "min"), .funs = arm::rescale) %>% 
   nest_by(team_name) %>%
   mutate(fit_win_pct = list(lm(team_w_pct ~ 
                                  net_rating
                                + min*bench, data = data))) %>%
-  summarise(tidy(fit_win_pct))
+  reframe(tidy(fit_win_pct, conf.int = T))
 
 m_group %>% 
   filter(term == "min:bench") %>% 
-  arrange(desc(estimate))
+  arrange(desc(estimate)) %>% print(n=30)
   
 
 # plot interaction model----
@@ -276,6 +274,64 @@ p1_wiz2
 
 ggsave("02 Output/interaction model results for the Wizards.png", p1_wiz, w = 16, h = 12, dpi = 300)
 
+
+# basic stan model for the wizards--
+
+tidy(stan_glm(team_w_pct~ Bench + Starter + total_bench_minutes, data = df_wide[df_wide$team_name=="Washington Wizards",]), conf.int = T)
+
+
+tidy(stan_glm(team_w_pct~ net_rating + min + bench*min, data = df[df$team_name=="Washington Wizards",]), conf.int = T)
+
+# trying something different---
+
+df_wide_pt <- df %>% 
+  # drop our character variables
+  dplyr::select(team_name, season, bench, net_rating, team_w_pct, min) %>% 
+  # collapse by team, season, and starter
+  group_by(team_name, season, bench) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+            , min = sum(min, na.rm=T)
+  ) %>%
+  ungroup() %>% 
+  mutate_at(.vars = c("net_rating",  "team_w_pct", "min"), .funs = arm::rescale) 
+
+p2 <- df %>% 
+  group_by(starter_char, team_name, season) %>% 
+  summarize(min = sum(min, na.rm=T), team_w_pct = mean(team_w_pct, na.rm=T)) %>% 
+  ggplot(aes(min, team_w_pct)) +
+  geom_point(aes(col = starter_char), shape =21) +
+  geom_smooth(aes(col = starter_char), method = "lm", se = F) +
+  theme_classic() + 
+  scale_color_manual(values = c("#E41134", "#00265B")) +
+  scale_x_continuous(labels = scales::number_format(scale = 0.001)) +
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22)
+  ) +
+  labs(x = "Total Minutes (in 1,000s)", y = "Team Win %"
+       , title = "Total Bench and Starter Minutes and\nOverall Team Win Percentage, 2011-23"
+       , caption = "data: nba.com/stats\nwizardspoints.substack.com"
+  ) + facet_wrap(~team_name)
+
+ggsave("02 Output/total minutes by bench and starters.png", p2, w = 18, h = 12, dpi = 300)
+
+
+bench_mod_wiz <- stan_glm(team_w_pct~ net_rating + min + bench*min, data = df_wide_pt[df_wide_pt$team_name=="Washington Wizards",])
+
+bench_mod <- stan_glm(team_w_pct~ net_rating + min + bench*min, data = df_wide_pt)
+
+plot_model(bench_mod, type = "int") + theme_538() +
+  labs(x = "minutes Played"
+       , y = "Team Win %"
+       , title = "Predicted Team Win Percentage by Player Status"
+       , caption = "data: fivethirtyeight.com and nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22))
 
 # regression tree----
 m2 <- rpart(
