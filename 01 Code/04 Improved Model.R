@@ -39,6 +39,8 @@ df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types 
 # simplify things a big
 
 df_wide <- df %>% 
+  # limit to players with 10 or more games
+  filter(gp>=10) %>% 
   # drop our character variables
   dplyr::select(team_name, season, starter_char, net_rating, team_w_pct) %>% 
   # collapse by team, season, and starter
@@ -241,8 +243,39 @@ m_group <- df %>%
 
 m_group %>% 
   filter(term == "min:bench") %>% 
-  arrange((p.value))
+  arrange(desc(estimate))
   
+
+# plot interaction model----
+
+# interaction model using 538 data for the wizards----
+m3_wiz_nba <- lm(team_w_pct ~ 
+               net_rating
+             + min*starter_char
+             , data = df[df$team_name=="Washington Wizards",])
+
+
+summary(m3_wiz_nba)
+performance(m3_wiz_nba)
+check_model(m3_wiz_nba)
+
+# visualize the predicted interaction effect
+p1_wiz2 <- plot_model(m3_wiz_nba, type = "int") + theme_538() +
+  labs(x = "minutes Played"
+       , y = "Team Win %"
+       , title = "Predicted Team Win Percentage by Player Status for the Washington Wizards"
+       , caption = "data: nba.com/stats\nwizardspoints.substack.com"
+  ) +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(legend.position = "top"
+        , legend.title = element_blank()
+        , text = element_text(size = 22))
+
+p1_wiz2
+
+ggsave("02 Output/interaction model results for the Wizards.png", p1_wiz, w = 16, h = 12, dpi = 300)
+
 
 # regression tree----
 m2 <- rpart(

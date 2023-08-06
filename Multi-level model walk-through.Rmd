@@ -22,7 +22,8 @@ set.seed(5292023)
 
 # load data---
 df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip())) %>% 
-  mutate(bench = ifelse(starter == 0, 1, 0)) 
+  mutate(bench = ifelse(starter == 0, 1, 0)) %>% 
+  filter(gp >=10) # limit to players with 10 or more games
 
 ```
 
@@ -32,7 +33,6 @@ Our dataset has bench and starter performance by team. Let's look at the relatio
 
 ```{r, echo = FALSE, warning = FALSE, message= FALSE}
 df %>% 
-  filter(10>=gp) %>% # limit to players with 10 or more games
   ggplot(aes(x = (net_rating), y = (team_w_pct), col = starter_char)) +
   geom_point(shape = 21, stroke = 3, alpha = 0.3) +
   geom_smooth(mapping = aes(group = starter_char), method = "lm", se = FALSE, fullrange = TRUE) +
@@ -56,7 +56,7 @@ Ok, varying slopes...big time. What about bench performance only by team?
 
 ```{r, echo = FALSE, warning = FALSE}
 df %>% 
-  filter(10>=gp & starter == 0) %>% # limit to players with 10 or more games
+  filter(starter == 0) %>% # limit to players with 10 or more games
   ggplot(aes(x = (net_rating), y = (team_w_pct), col = team_name)) +
   geom_point(shape = 21, stroke = 3, alpha = 0.3) +
   geom_smooth(mapping = aes(group = team_name), method = "lm", se = FALSE, fullrange = TRUE) +
@@ -110,7 +110,7 @@ A cross-level interaction is interpreted like an interaction in OLS: the effect 
 df_mod <- df %>% 
   dplyr::select(team_w_pct, min, net_rating, starter_char, season, team_name, player_name, bench) %>% 
   # rescale
-  mutate_at(.vars = c(1:3), .funs = arm::rescale) %>% 
+  mutate_at(.vars = c(1:3), .funs = arm::rescale) %>%
   arrange(season, player_name)
 
 mlm_1 <- lmer(team_w_pct ~  net_rating + min + bench + min:starter_char + (1|team_name), data = df_mod)
@@ -137,6 +137,7 @@ plot_model(mlm_1, type = "int") + theme_classic() +
         , legend.title = element_blank()
         , text = element_text(size = 22))
 ```
+
 Let's look at the specific team intercepts just for the bench. This will essentially give us a ranking of the interaction. 
 
 We can see that for roughly half the league, their benches aren't doing much for them after we account for variation in net rating by team. 
@@ -156,6 +157,7 @@ ranef_results %>%
   labs(x = "Mean effect of bench minutes", y = "", title = "What is the average effect of bench minutes\nby team on win percentage?", caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
 ```
 
+
 # Bring in the original DAG
 
 In our original design, the data are collapsed by starter-bench levels across teams. This still works within a multi-level framework, but likely increases some of the variance of our measures. We should get roughly the same results, but maybe with a little more noise since we are not working at a player-unit level but at a player-status unit level. 
@@ -163,20 +165,20 @@ In our original design, the data are collapsed by starter-bench levels across te
 ```{r, message = F, warning=FALSE}
 
 
-df_collapsed <- df %>% 
+df_collapsed <- df %>%
   # drop our character variables
-  dplyr::select(team_name, season, starter_char, net_rating, team_w_pct, min) %>%
+  dplyr::select(team_name, season, bench, net_rating, team_w_pct, min) %>%
   # collapse by team, season, and starter
-  group_by(team_name, season, starter_char) %>% 
+  group_by(team_name, season, bench) %>% 
   summarize(net_rating = mean(net_rating, na.rm=T)
             , team_w_pct = mean(team_w_pct, na.rm=T)
             , min = sum(min, na.rm=T)
             ) %>% 
-  ungroup() %>% 
-  mutate_at(.vars = c("net_rating", "min", "team_w_pct"), .funs = arm::rescale) 
+  ungroup()  %>% 
+  mutate_at(.vars = c("net_rating", "min", "team_w_pct"), .funs = arm::rescale)
 
 
-mlm_2 <- lmer(team_w_pct~ net_rating + min + starter_char*min + (1|team_name), data = df_collapsed)
+mlm_2 <- lmer(team_w_pct~ net_rating + min + bench*min +(1 |team_name), data = df_collapsed)
 
 
 
