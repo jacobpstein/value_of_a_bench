@@ -21,7 +21,7 @@ library(rstanarm) # bayesian model
 set.seed(5292023)
 
 # load data---
-df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip())) %>% 
+df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip())) %>% 
   mutate(bench = ifelse(starter == 0, 1, 0)) %>% 
   filter(gp >=10) # limit to players with 10 or more games
 
@@ -402,7 +402,7 @@ df_wide2 %>%
   group_by(team_name) %>% 
   summarize(fit = mean(fit, na.rm=T)
             , lwr = mean(lwr, na.rm=T)
-            , upr = mean(upr, na.rm=T)) %>% 
+            , upr = mean(upr,  na.rm=T)) %>% 
 ggplot(aes(x = fit, y = reorder(team_name, fit), xmin = lwr, xmax = upr)) + 
   geom_vline(xintercept = 0, linetype = 6) +
   geom_pointrange(aes(col = fit)) +
