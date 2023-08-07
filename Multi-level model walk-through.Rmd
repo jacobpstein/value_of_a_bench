@@ -453,16 +453,61 @@ results_df <- m_group2 %>%
 p1 <- results_df %>% 
 ggplot(aes(x = estimate, y = reorder(team_name, estimate), xmin = conf.low, xmax = conf.high)) + 
   geom_vline(xintercept = 0, linetype = 6) +
-  geom_pointrange(aes(col = estimate)) +
+  geom_pointrange(aes(col = estimate), size = 1, linewidth = 1) +
   viridis::scale_color_viridis(option = "viridis") +
   theme_classic() +
   theme(legend.position = "NA"
         , text = element_text(size = 26)) +
-  labs(x = "Effect of bench on win percentage", y = "", title = "What is the effect of bench minutes by team?"
+  labs(x = "Effect of bench on win percentage (in percentage points)", y = "", title = "What is the effect of bench minutes by team?"
        , caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
 p1
 
 ggsave("02 Output/interaction model results for all teams.png", p1, w = 16, h = 12, dpi = 300)
+
+
+```
+
+We can see what the overall effect and the effect for the Wizards:
+
+```{r}
+interact_mod <- glm(team_w_pct ~ 
+              net_rating
+            +  bench_char*min
+            , data = df_wide_pt)
+
+p2 <- interactions::interact_plot(interact_mod, pred = "min", modx = "bench_char", interval = T) +
+  labs(x = "Total Minutes", y = "Win Percentage", title = "Relative effect of bench and starter minutes after controlling for performance", caption = "data: nba.com/stats\nwizardspoints.substack.com"
+) +
+  scale_color_manual(values = c("#E41134", "#00265B")) +
+  theme_classic() +
+  theme(legend.title = element_blank()) 
+
+p2
+
+# ggsave("02 Output/interaction output for all teams.png", p1, w = 12, h = 12, dpi = 300)
+
+
+
+```
+
+Let's look at the same thing but just for the Wizards.
+
+```{r}
+interact_mod_wiz <- glm(team_w_pct ~ 
+              net_rating
+            +  bench_char*min
+            , data = df_wide_pt[df_wide_pt$team_name == "Washington Wizards",])
+
+p2_wiz <- interactions::interact_plot(interact_mod_wiz, pred = "min", modx = "bench_char", interval = T) +
+  labs(x = "Total Minutes", y = "Win Percentage", title = "Relative effect of bench and starter minutes after controlling for performance for the Wizards", caption = "data: nba.com/stats\nwizardspoints.substack.com"
+) +
+  scale_color_manual(values = c("#E41134", "#00265B")) +
+  theme_classic() +
+  theme(legend.title = element_blank()) 
+
+p2_wiz
+
+# ggsave("02 Output/interaction output for the Wizards.png", p2_wiz, w = 12, h = 12, dpi = 300)
 
 
 ```
