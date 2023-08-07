@@ -18,7 +18,7 @@ library(geomtextpath) # for labeled lines
 set.seed(5292023)
 
 # read in data
-player_team_df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip(), X = col_skip()))
+player_team_df <- read_csv("03 Data/advanced player stats and team stats.csv", col_types = cols(...1 = col_skip()))
 
 # import 538 data
 df_538 <- read_csv("03 Data/player and team stats with 538 data.csv", col_types = cols(...1 = col_skip())) %>% 
