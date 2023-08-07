@@ -308,3 +308,21 @@ p9
 
 ggsave("02 Output/net rating by team over time.png", p9, w = 24, h = 12, dpi = 300)
 
+
+# take a look at ranking benches----
+player_team_df %>% 
+  filter(gp>=10) %>% 
+  group_by(season, team_name, starter_char) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)) %>% 
+  filter(starter_char == "Bench") %>% 
+  group_by(season) %>% 
+  arrange(season, desc(net_rating)) %>% 
+  mutate(rank=row_number()) %>% 
+  arrange(season, (rank)) %>%
+  group_by(team_name) %>% 
+  summarize(rank = mean(rank)) %>% 
+  ggplot(aes(y = reorder(team_name, rank), x = rank)) +
+  geom_col() +
+  theme_classic() +
+  theme(legend.position = "NA")
+
