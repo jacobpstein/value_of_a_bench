@@ -422,7 +422,8 @@ $$
 \end{aligned}
 $$
 
-```{r}
+```{r, message = FALSE, warning = FALSE, results = "hide}
+
 
 df_wide_pt <- df %>% 
   mutate(bench_char = ifelse(bench == 1, "Bench", "Starter")) %>% 
@@ -462,7 +463,7 @@ ggplot(aes(x = estimate, y = reorder(team_name, estimate), xmin = conf.low, xmax
        , caption = "Data: NBA.com/stats\nwizardspoints.substack.com")
 p1
 
-ggsave("02 Output/interaction model results for all teams.png", p1, w = 16, h = 12, dpi = 300)
+# ggsave("02 Output/interaction model results for all teams.png", p1, w = 16, h = 12, dpi = 300)
 
 
 ```
@@ -499,15 +500,158 @@ interact_mod_wiz <- glm(team_w_pct ~
             , data = df_wide_pt[df_wide_pt$team_name == "Washington Wizards",])
 
 p2_wiz <- interactions::interact_plot(interact_mod_wiz, pred = "min", modx = "bench_char", interval = T) +
-  labs(x = "Total Minutes", y = "Win Percentage", title = "Relative effect of bench and starter minutes after controlling for performance for the Wizards", caption = "data: nba.com/stats\nwizardspoints.substack.com"
-) +
-  scale_color_manual(values = c("#E41134", "#00265B")) +
-  theme_classic() +
-  theme(legend.title = element_blank()) 
+    labs(x = "Total Minutes", y = "Win Percentage", title = "Relative effect of bench and starter minutes after controlling for performance for the Wizards", caption = "data: nba.com/stats\nwizardspoints.substack.com"
+    ) +
+    scale_color_manual(values = c("#E41134", "#00265B")) +
+    theme_classic() + 
+    theme(legend.title = element_blank()) 
 
 p2_wiz
+
 
 # ggsave("02 Output/interaction output for the Wizards.png", p2_wiz, w = 12, h = 12, dpi = 300)
 
 
 ```
+Let's look at individual effects specifically
+
+```{r, message = FALSE, warning = FALSE}
+
+# wizards
+tidy(stan_glm(team_w_pct ~ 
+                net_rating
+            +  min
+            , data = df_wide_pt[df_wide_pt$team_name== "Washington Wizards" & df_wide_pt$bench==1, ]), conf.int = T)
+
+
+tidy(stan_glm(team_w_pct ~ 
+                net_rating
+            +  min
+            , data = df_wide_pt[df_wide_pt$team_name== "Golden State Warriors" & df_wide_pt$bench==1, ]), conf.int = T)
+
+
+tidy(stan_glm(team_w_pct ~ 
+                net_rating
+            +  min
+            , data = df_wide_pt[df_wide_pt$team_name== "Denver Nuggets" & df_wide_pt$bench==1, ]), conf.int = T)
+
+tidy(stan_glm(team_w_pct ~ 
+                net_rating
+            +  min
+            , data = df_wide_pt[df_wide_pt$team_name== "Boston Celtics" & df_wide_pt$bench==1, ]), conf.int = T)
+
+```
+
+# Bench net rating by team
+
+Something that people say online is that good teams have good benches. It's worth looking at the top net rating seasons for each bench to see what those teams did in that year.
+
+```{r, warning = F, message = F}
+
+
+df_wide_pt_no_scale <- df %>% 
+  mutate(bench_char = ifelse(bench == 1, "Bench", "Starter")) %>% 
+  # drop our character variables
+  dplyr::select(team_name, season, bench_char, bench, net_rating, team_w_pct, min) %>% 
+  # collapse by team, season, and starter
+  group_by(team_name, season, bench_char, bench) %>% 
+  summarize(net_rating = mean(net_rating, na.rm=T)
+            , team_w_pct = mean(team_w_pct, na.rm=T)
+            , min = sum(min, na.rm=T)
+  ) %>%
+  ungroup() 
+
+df_wide_pt_no_scale %>% 
+  filter(bench == 1) %>% 
+  group_by(team_name) %>% 
+  slice(which.max(net_rating)) %>% 
+  arrange(desc(net_rating))
+
+```
+
+What we have:
+
+- The Bulls bench in 2011-12 had the highest net rating of any bench in their last season making it to the Eastern conference finals.
+- The Raptors had the best bench the season after they won the championship 19-20 when they made it to the second round of the playoffs
+- The Spurs best bench in the data was the 11-12 season they made it to the WCF
+- The Nuggets bench was best in 11-12 when they made it to the first round of the playoffs
+- the Lakers bench was best in 20-21, when the made it to the first round of the playoffs
+
+###Let's look at the second and third best seasons, too.
+
+```{r, warning = F, message = F}
+df_wide_pt_no_scale %>% 
+  filter(bench == 1) %>%  dplyr::select(season, team_name, net_rating) %>%
+  group_by(team_name) %>% 
+arrange(desc(net_rating), .by_group = TRUE) %>%
+  top_n(3) %>% 
+    group_by(team_name) %>% 
+    arrange(desc(net_rating), .by_group = TRUE) %>%
+    top_n(3) %>% arrange(team_name, desc(net_rating)) %>% mutate(rank = row_number()) %>% arrange(desc(net_rating)) %>% left_join(df_wide_pt_no_scale %>% dplyr::select(season, team_name, team_w_pct)) %>% unique() %>% arrange(desc(team_w_pct)) %>% print(n=30)
+
+```
+
+# Probability of 50 wins given your bench's net rating is above 0
+
+Let's do a little Bayes therom
+$P(A|B) = \frac{P(B|A) * P(A)}{P(B)}$
+
+
+```{r}
+
+# how many seasons and teams have 50 or more wins?
+df_wide_pt_no_scale %>% filter(bench == 1) %>% dplyr::select(team_name, season, team_w_pct) %>% filter(team_w_pct>=0.6097561) %>% count()
+# 92 
+
+df_wide_pt_no_scale %>% filter(bench == 1) %>% 
+  dplyr::select(team_name, season, net_rating) %>% 
+  filter(net_rating>0) %>% count()
+
+# 97 benches have had positive net ratings, 263 had negative net ratings
+
+df_wide_pt_no_scale %>% filter(bench == 1) %>% 
+  dplyr::select(team_name, season, net_rating, team_w_pct) %>% 
+  filter(net_rating>0 & team_w_pct>=0.6097561) %>% count()
+
+
+# 48 teams have had a 50+ win season and a bench with a positive net rating
+
+# net rating less than zero and less than 50 wins
+
+df_wide_pt_no_scale %>% filter(bench == 1) %>% 
+    dplyr::select(team_name, season, net_rating, team_w_pct) %>% 
+    filter(net_rating<0&team_w_pct<0.6097561) %>% count()
+
+# 219
+
+df_wide_pt_no_scale %>% filter(bench == 1) %>% 
+    dplyr::select(team_name, season, net_rating, team_w_pct) %>% 
+    filter(net_rating<0&team_w_pct>=0.6097561) %>% count()
+
+# 44 teams/seasons have a bench with less than a 0 net rating for their bench, but 50+ wins
+
+
+p_of_50_wins <- 92/360 # P(B), 360 is the sum of our 97 obs with positive net rating and the 263 with a negative net rating
+p_positive = 97/360 # about 13% of teams have had a positive bench net rating, i.e., P(A)
+
+p_positive_bench_and_50_wins = (48/92) # about 6% of teams have had a positive bench net rating and a 50+ win season and we want the conditional , or P(B|A)
+
+p_50wins_given_positive_bench <- (p_positive_bench_and_50_wins*p_of_50_wins)/p_positive
+print(p_50wins_given_positive_bench)
+
+```
+
+So there's about a 49% probability of winning 50 or more games given given that your bench has a positive net rating
+
+```{r, message = F, warning = F}
+
+df_wide_pt2 <- df_wide_pt_no_scale %>% mutate(fifty = ifelse(team_w_pct>=0.6097561, 1, 0)) %>% filter(bench ==1)
+
+log_m <- glm(fifty~net_rating +min, data = df_wide_pt2, family = "binomial")
+
+
+exp(coef(log_m)[2])
+```
+
+We also see that each one unit increase in bench net rating is associated with a 24% (16-35%) increase in the odds of having a 50+ win season, which is statistically significant 
+
